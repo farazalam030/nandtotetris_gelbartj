@@ -16,7 +16,7 @@ int main(int argc, char** argv)
         cin >> filename;
     }
     else {
-        filename = argv[0];
+        filename = argv[1];
     }
 
     Assembler assembler(filename);
