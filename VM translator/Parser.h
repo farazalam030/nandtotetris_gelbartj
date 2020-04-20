@@ -3,6 +3,7 @@
 #include <string>
 #include <fstream>
 #include <set>
+#include <map>
 #include "Shared.h"
 
 class Parser
@@ -22,16 +23,17 @@ public:
 
 	int arg2(); // returns second argument if current command is C_PUSH, C_POP, C_FUNCTION or C_CALL
 
-	void printCurrLine();
+	std::string getCurrLine();
 	void close();
 
 	~Parser();
 
 private:
 	bool failedOpen = false;
-	void removeComments(std::string& line);
+	void removeWhitespace(std::string& line);
 	std::ifstream vmFile;
 	std::string currLine;
 	static const std::set<std::string> arithCommands;
+	static const std::map<std::string, Command> commandMap;
 };
 

@@ -349,8 +349,7 @@ void CodeWriter::writeReturn()
 		"M=D\n"
 		// copy last item on stack to arg 0
 		"@SP\n"
-		"A=M\n"
-		"A=A-1\n"
+		"A=M-1\n"
 		"D=M\n"
 		"@ARG\n"
 		"A=M\n"
@@ -380,6 +379,11 @@ void CodeWriter::writeReturn()
 		"@R15\n"
 		"A=M\n"
 		"0;JMP\n";
+}
+
+void CodeWriter::writeComment(string comment) {
+	// Does not accept a reference because that would require creating a new string object from the main method anyway. No advantage.
+	outputFile << "// " << comment << endl; // double set of "//" will indicate comments from vm file
 }
 
 void CodeWriter::close()

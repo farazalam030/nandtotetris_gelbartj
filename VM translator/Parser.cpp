@@ -4,11 +4,23 @@
 #include <string>
 #include <algorithm>
 #include <set>
+#include <map>
 #include <filesystem>
 
 using namespace std;
 
 const set<string> Parser::arithCommands = { "add", "sub", "neg", "eq", "gt", "lt", "and", "or", "not" };
+const map<string, Command> Parser::commandMap = {
+	{ "pop",      Command::C_POP },
+	{ "push",     Command::C_PUSH },
+	{ "if-goto",  Command::C_IF },
+	{ "goto",     Command::C_GOTO },
+	{ "function", Command::C_FUNCTION },
+	{ "call",     Command::C_CALL },
+	{ "return",   Command::C_RETURN },
+	{ "label",    Command::C_LABEL },
+	{ "//",       Command::COMMENT }
+};
 
 Parser::Parser(string& filename)
 {
@@ -32,15 +44,7 @@ bool Parser::hasMoreCommands()
 	return vmFile.good(); // file is open and has not reached eof
 }
 
-void Parser::removeComments(string& line) {
-	size_t slashPos = line.find_first_of("//");
-	if (slashPos == 0) { // entire line is a comment
-		line.clear();
-		return;
-	}
-	if (slashPos != string::npos)
-		line.erase(slashPos);
-
+void Parser::removeWhitespace(string& line) {
 	// Trim left whitespace
 	size_t charsStart = line.find_first_not_of(" \t");
 	if (charsStart != string::npos)
@@ -48,6 +52,11 @@ void Parser::removeComments(string& line) {
 	else { // entire line is whitespace
 		line.clear();
 		return;
+	}
+
+	size_t slashPos = line.find_first_of("//");
+	if (slashPos != string::npos && slashPos > 0) { // remove inline comments only
+		line.erase(slashPos);
 	}
 
 	// Trim right whitespace
@@ -60,11 +69,8 @@ void Parser::advance()
 {
 	if (hasMoreCommands()) {
 		getline(vmFile, currLine);
-		// cout << "currLine before removing comments: " << currLine << endl;
-		removeComments(currLine);
-		// cout << "currLine after removing comments: " << currLine << endl;
+		removeWhitespace(currLine);
 		if (currLine.length() == 0) {
-			// cout << "Line is now blank. Advancing." << endl;
 			advance();
 		}
 		if (currLine.length() > 0) currCommandType = commandType();
@@ -79,19 +85,13 @@ Command Parser::commandType()
 {
 	string commandString = currLine.substr(0, currLine.find_first_of(" "));
 	if (arithCommands.find(commandString) != arithCommands.end()) {
-		// cout << "Command " << commandString << " identified as arithmetic" << endl;
 		return Command::C_ARITHMETIC;
 	}
 
-	// Switch command doesn't work for strings. Inelegant but only choice for enums.
-	else if (commandString == "pop") return Command::C_POP;
-	else if (commandString == "push") return Command::C_PUSH;
-	else if (commandString == "if-goto")  return Command::C_IF;
-	else if (commandString == "goto") return Command::C_GOTO;
-	else if (commandString == "function") return Command::C_FUNCTION;
-	else if (commandString == "call") return Command::C_CALL;
-	else if (commandString == "return") return Command::C_RETURN;
-	else if (commandString == "label") return Command::C_LABEL;
+	auto foundCommand = commandMap.find(commandString);
+	if (foundCommand != commandMap.end()) {
+		return foundCommand->second;
+	}
 
 	else {
 		cout << "Command " << commandString << " not found." << endl;
@@ -124,8 +124,8 @@ int Parser::arg2()
 	return NAN;
 }
 
-void Parser::printCurrLine() {
-	cout << currLine << endl;
+string Parser::getCurrLine() {
+	return currLine;
 }
 
 void Parser::close() {

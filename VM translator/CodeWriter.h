@@ -3,7 +3,6 @@
 #include <fstream>
 #include <set>
 #include <map>
-#include <vector>
 #include "Shared.h"
 constexpr int TEMP_START = 5;
 
@@ -23,6 +22,7 @@ public:
 	void writeFunction(std::string& functionName, int numVars);
 	void writeCall(std::string& functionName, int numArgs);
 	void writeReturn();
+	void writeComment(std::string comment);
 
 	void close(); // close output file
 

@@ -75,31 +75,41 @@ int main(int argc, char *argv[])
                 codeWriter.writeReturn();
                 continue;
             }
+            else if (parser.currCommandType == Command::COMMENT) {
+                codeWriter.writeComment(parser.getCurrLine());
+                continue;
+            }
             string arg1 = parser.arg1();
-            if (parser.currCommandType == Command::C_ARITHMETIC) {
-                codeWriter.writeArithmetic(arg1);
-                continue;
+
+            switch (parser.currCommandType) {
+                case Command::C_ARITHMETIC:
+                    codeWriter.writeArithmetic(arg1);
+                    continue;
+                case Command::C_GOTO:
+                    codeWriter.writeGoto(arg1);
+                    continue;
+                case Command::C_IF:
+                    codeWriter.writeIf(arg1);
+                    continue;
+                case Command::C_LABEL:
+                    codeWriter.writeLabel(arg1);
+                    continue;
             }
-            else if (parser.currCommandType == Command::C_GOTO) {
-                codeWriter.writeGoto(arg1);
-                continue;
-            }
-            else if (parser.currCommandType == Command::C_IF) {
-                codeWriter.writeIf(arg1);
-                continue;
-            }
-            else if (parser.currCommandType == Command::C_LABEL) {
-                codeWriter.writeLabel(arg1);
-                continue;
-            }
+
             int arg2 = parser.arg2();
             if (arg2 != NAN) {
-                if (parser.currCommandType == Command::C_POP || parser.currCommandType == Command::C_PUSH) codeWriter.writePushPop(parser.currCommandType, arg1, arg2);
-                else if (parser.currCommandType == Command::C_CALL) {
-                    codeWriter.writeCall(arg1, arg2);
-                }
-                else if (parser.currCommandType == Command::C_FUNCTION) {
-                    codeWriter.writeFunction(arg1, arg2);
+                switch (parser.currCommandType) {
+                    case Command::C_PUSH:
+                        // fall through
+                    case Command::C_POP:
+                        codeWriter.writePushPop(parser.currCommandType, arg1, arg2);
+                        break;
+                    case Command::C_CALL:
+                        codeWriter.writeCall(arg1, arg2);
+                        break;
+                    case Command::C_FUNCTION:
+                        codeWriter.writeFunction(arg1, arg2);
+                        break;
                 }
             }
         }
