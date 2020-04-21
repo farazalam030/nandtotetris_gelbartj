@@ -1,0 +1,166 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/09/Circle/Circle.jack
+
+/** Implements a graphical Circle. */
+class Circle {
+
+   field int x, y; // screen location of the Circle's top-left corner
+   // field int size; // length of this Circle, in pixels
+   field int radius;
+
+   /** Constructs a new Circle with a given location and size. */
+   constructor Circle new(int Ax, int Ay, int Aradius) {
+      let x = Ax;
+      let y = Ay;
+      let radius = Aradius;
+      do draw();
+      return this;
+   }
+
+   /** Disposes this Circle. */
+   method void dispose() {
+      do Memory.deAlloc(this);
+      return;
+   }
+
+   method int currX() {
+       return x;
+   }
+
+   method int currY() {
+       return y;
+   }
+
+   method int currRad() {
+       return radius;
+   }
+
+   method boolean intersects(Square sq) {
+       return (
+           ((y > sq.currY()) | (y + (2*radius) > sq.currY())) &
+           ((y < (sq.currY() + sq.currHeight())) | (y + (2*radius) < (sq.currY() + sq.currHeight()))) & 
+            ((x > sq.currX()) | (x + (2*radius) > sq.currX())) &
+            ((x < (sq.currX() + sq.currWidth())) | (x + (2*radius) < (sq.currX() + sq.currWidth())))
+            & ~sq.getErased() 
+            );
+   }
+
+    method void drawCircle(int Ax, int Ay, int Aradius) {
+        // Ax and Ay are the upper left coordinates of the circumscribed square
+        var int currX;
+        var int startY;
+        var int endY;
+        var int counter;
+        var int widthChange;
+
+        let currX = Ax;
+
+        // coords for inscribed square if desired
+        // let diff = Aradius * (1 - (Math.sqrt(2) / 2));
+        // do Screen.drawRectangle(Ax + diff, Ay + diff, Ax + (Aradius * 2) - diff, Ay + (Aradius * 2) - diff);
+
+        let counter = 0;
+        while (counter < (Aradius * 2)) {
+            let startY = Ay + Math.sqrt(2 * Aradius * counter - (counter * counter)) + Aradius;
+            let endY = Ay + Aradius - Math.sqrt(2 * Aradius * counter - (counter * counter));
+            do Screen.drawLine(currX, startY, currX, endY);
+            let currX = currX + 1;
+            let counter = counter + 1;
+        }
+        //let counter = 1;
+        //let currX = Ax + 1;
+        //let currY = Ay + Aradius + 1;
+        //while (counter < (Aradius)) { // draw bottom half of circle
+        //    do Screen.drawLine(currX, currY, currX + (2 * Aradius) - (2 * counter), currY);
+        //    let currY = currY + 1;
+        //    let currX = currX + 1;
+        //    let counter = counter + 1;
+        //}
+        return;
+    }
+
+   /** Draws the Circle on the screen. */
+   method void draw() {
+      do Screen.setColor(true);
+      // do drawCircle(x, y, x + size, y + size);
+      do drawCircle(x, y, radius);
+      return;
+   }
+
+   /** Erases the Circle from the screen. */
+   method void erase() {
+      do Screen.setColor(false);
+      do Screen.drawRectangle(x, y, x + (radius * 2), y + (radius * 2));
+      return;
+   }
+
+    /** Increments the Circle size by 2 pixels. */
+   method void incSize() {
+      if (((y + (radius * 2)) + 2 < 254) & ((x + (radius * 2)) + 2 < 510)) {
+         do erase();
+         let radius = radius + 2;
+         do draw();
+      }
+      return;
+   }
+
+   /** Decrements the Circle size by 2 pixels. */
+   method void decSize() {
+      if (radius > 2) {
+         do erase();
+         let radius = radius - 2;
+         do draw();
+      }
+      return;
+   }
+
+   /** Moves the Circle up by 2 pixels. */
+   method void moveUp() {
+      if (y > 4) {
+         do Screen.setColor(false);
+         do drawCircle(x, y, radius);
+         let y = y - 5;
+         do Screen.setColor(true);
+         do drawCircle(x, y, radius);
+      }
+      return;
+   }
+
+   /** Moves the Circle down by 2 pixels. */
+   method void moveDown() {
+      if ((y + (radius * 2) + 3) < 254) {
+         do Screen.setColor(false);
+         do drawCircle(x, y, radius);
+         let y = y + 5;
+         do Screen.setColor(true);
+         do drawCircle(x, y, radius);
+      }
+      return;
+   }
+
+   /** Moves the Circle left by 2 pixels. */
+   method void moveLeft() {
+      if (x > 4) {
+         do Screen.setColor(false);
+         do drawCircle(x, y, radius);
+         let x = x - 5;
+         do Screen.setColor(true);
+         do drawCircle(x, y, radius);
+      }
+      return;
+   }
+
+   /** Moves the Circle right by 2 pixels. */
+   method void moveRight() {
+      if ((x + (radius * 2) + 4) < 510) {
+         do Screen.setColor(false);
+         do drawCircle(x, y, radius);
+         let x = x + 5;
+         do Screen.setColor(true);
+         do drawCircle(x, y, radius);
+      }
+      return;
+   }
+}

@@ -1,0 +1,281 @@
+/**
+ * Based on the Square Dance game provided in Nand to Tetris materials, expanded into a semi-Breakout clone
+ */
+
+class CircleGame {
+   field Circle circle; // the circle of this game
+   field int direction; // the circle's current direction: 
+                        // 0=none, 1=up, 2=down, 3=left, 4=right
+
+    // All of this boilerplate was painful to write out, but Jack doesn't seem to offer dynamic object creation
+    field Square block1;
+    field Square block2;
+    field Square block3;
+    field Square block4;
+    field Square block5;
+    field Square block6;
+    field Square block7;
+    field Square block8;
+    field Square block9;
+    field Square block10;
+    field Square block11;
+    field Square block12;
+    field Square block13;
+    field Square block14;
+    field Square block15;
+    field Square block16;
+    field Square block17;
+    field Square block18;
+    field Square block19;
+    field Square block20;
+    field Square block21;
+    field Square block22;
+    field Square block23;
+    field Square block24;
+    field Square block25;
+    field Square block26;
+    field Square block27;
+    field Square block28;
+    field Square block29;
+    field Square block30;
+    field Square block31;
+    field Square block32;
+    field Square block33;
+    field Square block34;
+    field Square block35;
+    field Square block36;
+    field Square block37;
+    field Square block38;
+    field Square block39;
+    field Square block40;
+    field Square block41;
+    field Square block42;
+    field Square block43;
+    field Square block44;
+    field Square block45;
+    field Square block46;
+    field Square block47;
+    field Square block48;
+    field Array blocks;
+    field int numBlocks;
+    field Scoreboard scoreboard;
+    field bool exit;
+
+
+   constructor CircleGame new() {
+
+      let circle = Circle.new(255, 200, 10);
+      let block1 = Square.new(10, 10, 50, 10);
+      let block2 = Square.new(70, 10, 50, 10);
+      let block3 = Square.new(130, 10, 50, 10);
+      let block4 = Square.new(190, 10, 50, 10);
+      let block5 = Square.new(250, 10, 50, 10);
+      let block6 = Square.new(310, 10, 50, 10);
+      let block7 = Square.new(370, 10, 50, 10);
+      let block8 = Square.new(430, 10, 50, 10);
+      let block9 = Square.new(25, 30, 50, 10);
+      let block10 = Square.new(90, 30, 50, 10);
+      let block11 = Square.new(155, 30, 50, 10);
+      let block12 = Square.new(215, 30, 50, 10);
+      let block13 = Square.new(275, 30, 50, 10);
+      let block14 = Square.new(335, 30, 50, 10);
+      let block15 = Square.new(395, 30, 50, 10);
+      let block16 = Square.new(455, 30, 50, 10);
+      let block17 = Square.new(10, 50, 50, 10);
+      let block18 = Square.new(70, 50, 50, 10);
+      let block19 = Square.new(130, 50, 50, 10);
+      let block20 = Square.new(190, 50, 50, 10);
+      let block21 = Square.new(250, 50, 50, 10);
+      let block22 = Square.new(310, 50, 50, 10);
+      let block23 = Square.new(370, 50, 50, 10);
+      let block24 = Square.new(430, 50, 50, 10);
+      let block25 = Square.new(10, 70, 50, 10);
+      let block26 = Square.new(70, 70, 50, 10);
+      let block27 = Square.new(130, 70, 50, 10);
+      let block28 = Square.new(190, 70, 50, 10);
+      let block29 = Square.new(250, 70, 50, 10);
+      let block30 = Square.new(310, 70, 50, 10);
+      let block31 = Square.new(370, 70, 50, 10);
+      let block32 = Square.new(430, 70, 50, 10);
+      let block33 = Square.new(10, 90, 50, 10);
+      let block34 = Square.new(70, 90, 50, 10);
+      let block35 = Square.new(130, 90, 50, 10);
+      let block36 = Square.new(190, 90, 50, 10);
+      let block37 = Square.new(250, 90, 50, 10);
+      let block38 = Square.new(310, 90, 50, 10);
+      let block39 = Square.new(370, 90, 50, 10);
+      let block40 = Square.new(430, 90, 50, 10);
+      let block41 = Square.new(10, 110, 50, 10);
+      let block42 = Square.new(70, 110, 50, 10);
+      let block43 = Square.new(130, 110, 50, 10);
+      let block44 = Square.new(190, 110, 50, 10);
+      let block45 = Square.new(250, 110, 50, 10);
+      let block46 = Square.new(310, 110, 50, 10);
+      let block47 = Square.new(370, 110, 50, 10);
+      let block48 = Square.new(430, 110, 50, 10);
+
+      let numBlocks = 48;
+      let blocks = Array.new(numBlocks);
+      let blocks[0] = block1;
+      let blocks[1] = block2;
+      let blocks[2] = block3;
+      let blocks[3] = block4;
+      let blocks[4] = block5;
+      let blocks[5] = block6;
+      let blocks[6] = block7;
+      let blocks[7] = block8;
+      let blocks[8] = block9;
+      let blocks[9] = block10;
+      let blocks[10] = block11;
+      let blocks[11] = block12;
+      let blocks[12] = block13;
+      let blocks[13] = block14;
+      let blocks[14] = block15;
+      let blocks[15] = block16;
+      let blocks[16] = block17;
+      let blocks[17] = block18;
+      let blocks[18] = block19;
+      let blocks[19] = block20;
+      let blocks[20] = block21;
+      let blocks[21] = block22;
+      let blocks[22] = block23;
+      let blocks[23] = block24;
+      let blocks[24] = block25;
+      let blocks[25] = block26;
+      let blocks[26] = block27;
+      let blocks[27] = block28;
+      let blocks[28] = block29;
+      let blocks[29] = block30;
+      let blocks[30] = block31;
+      let blocks[31] = block32;
+      let blocks[32] = block33;
+      let blocks[33] = block34;
+      let blocks[34] = block35;
+      let blocks[35] = block36;
+      let blocks[36] = block37;
+      let blocks[37] = block38;
+      let blocks[38] = block39;
+      let blocks[39] = block40;
+      let blocks[40] = block41;
+      let blocks[41] = block42;
+      let blocks[42] = block43;
+      let blocks[43] = block44;
+      let blocks[44] = block45;
+      let blocks[45] = block46;
+      let blocks[46] = block47;
+      let blocks[47] = block48;
+
+      
+      let direction = 0;  // initial state is no movement
+      let scoreboard = Scoreboard.new(0);
+      return this;
+   }
+
+   /** Disposes this game. */
+   method void dispose() {
+      do circle.dispose();
+      do scoreboard.dispose();
+      do Memory.deAlloc(this);
+      return;
+   }
+
+   /** Moves the circle in the current direction. */
+   method void moveCircle() {
+       var int counter;
+       var Square currBlock;
+       var bool intersected;
+       let intersected = false;
+       let counter = 0;
+       while (counter < numBlocks) {
+            let currBlock = blocks[counter];
+            if (circle.intersects(currBlock)) {
+                do currBlock.erase();
+                let intersected = true;
+                do scoreboard.addScore(10);
+                if (scoreboard.getScore() = (numBlocks * 10)) {
+                    do Output.moveCursor(15, 25);
+                    do Output.printString("YOU WIN!");
+                    let exit = true;
+                    return;
+                }
+            }
+            let counter = counter + 1;
+       }
+      if (direction = 1) { 
+          do circle.moveUp(); 
+          if (intersected | (circle.currY() < 1)) {
+              let direction = 2;
+              return;
+          }
+        }
+          
+      if (direction = 2) { 
+          do circle.moveDown(); 
+
+          if (intersected) {
+              let direction = 1;
+              return;
+          }
+
+          if (circle.currY() + (circle.currRad() * 2) > 253) {
+              do Output.moveCursor(15, 25);
+              do Output.printString("YOU LOSE...");
+              let exit = true;
+              return;
+          }
+          
+        }
+      if (direction = 3) { 
+          do circle.moveLeft(); 
+          if (intersected | (circle.currX() < 1)) {
+              let direction = 4;
+              return;
+          }
+        }
+      if (direction = 4) { 
+          do circle.moveRight(); 
+          if (intersected | (circle.currX() + (2*circle.currRad()) > 509)) {
+              let direction = 3;
+              return;
+          }
+        }
+      // do Sys.wait(5);  // delays the next movement
+      // do block1.draw();
+      // do block2.draw();
+      return;
+   }
+
+   /** Runs the game: handles the user's inputs and moves the circle accordingly */
+   method void run() {
+      var char key;  // the key currently pressed by the user
+      let exit = false;
+      
+      while (~exit) {
+         // waits for a key to be pressed
+         while (key = 0) {
+            let key = Keyboard.keyPressed();
+            do moveCircle();
+            if (exit = true) {
+                return;
+            }
+         }
+         if (key = 81)  { let exit = true; }     // q key
+         if (key = 90)  { do circle.decSize(); } // z key
+         if (key = 88)  { do circle.incSize(); } // x key
+         if (key = 131) { let direction = 1; }   // up arrow
+         if (key = 133) { let direction = 2; }   // down arrow
+         if (key = 130) { let direction = 3; }   // left arrow
+         if (key = 132) { let direction = 4; }   // right arrow
+
+         // waits for the key to be released
+         while (~(key = 0)) {
+            let key = Keyboard.keyPressed();
+            do moveCircle();
+         }
+     } // while
+     return;
+   }
+}
+
+
+

@@ -1,0 +1,32 @@
+class Scoreboard {
+    field int score;
+
+    constructor Scoreboard new(int Ascore) {
+        let score = Ascore;
+        do displayScore();
+        return this;
+    }
+
+    method void addScore(int Ascore) {
+        let score = score + Ascore;
+        do displayScore();
+        return;
+    }
+
+    method void displayScore() {
+        do Output.moveCursor(20, 50);
+        do Output.printString("Score: ");
+        do Output.printInt(score);
+        return;
+    }
+
+    method int getScore() {
+        return score;
+    }
+
+    method void dispose() {
+      do Memory.deAlloc(this);
+      return;
+   }
+    
+}
