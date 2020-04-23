@@ -76,8 +76,9 @@ JackTokenizer::JackTokenizer(std::string& inputFilename)
 void JackTokenizer::stripAllComments() {
 	string line;
 	bool isMultiLine = false;
-	int lineNum = 0;
+	int lineNum = 1;
 	int writtenChars = 0;
+	lineNums.emplace(lineNum, writtenChars);
 	while (getline(inFile, line)) {
 		++lineNum;
 		if (isMultiLine) {
@@ -92,7 +93,7 @@ void JackTokenizer::stripAllComments() {
 		}
 		isMultiLine = removeComments(line);
 		if (line.length() == 0) continue;
-		writtenChars += line.length() + 1; // plus 1 for space
+		writtenChars += line.length() +1; // plus 1 for space
 		lineNums.emplace(lineNum, writtenChars);
 		strippedText << line << " "; // use spaces instead of newline
 	}
@@ -150,8 +151,9 @@ bool JackTokenizer::hasMoreTokens()
 
 int JackTokenizer::currPos() {
 	for (auto it = lineNums.begin(); it != lineNums.end(); it++) {
-		if (strippedText.tellg() < it->second) {
-			return it->first - 1;
+		// cout << it->first << ": tellg is " << strippedText.tellg() << " and stored lineNum val is " << it->second << endl;
+		if (strippedText.tellg() <= it->second) {
+			return (--it)->first;
 		}
 	}
 	return -1;

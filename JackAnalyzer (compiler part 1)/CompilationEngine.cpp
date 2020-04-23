@@ -239,7 +239,8 @@ void CompilationEngine::compileVarDec()
 void CompilationEngine::compileStatements()
 {
 	outFile << "<statements>" << endl;
-	while (!tk->aborted() && tk->tokenType() == Token::KEYWORD) {
+	bool endFlag = false;
+	while (!tk->aborted() && tk->tokenType() == Token::KEYWORD && !endFlag) {
 		switch (tk->keyword()) {
 			case Keyword::LET:
 				compileLet();
@@ -255,6 +256,9 @@ void CompilationEngine::compileStatements()
 				break;
 			case Keyword::RETURN:
 				compileReturn();
+				break;
+			default:
+				endFlag = true;
 				break;
 		}
 		// cout << "Current token is " << tk->stringVal() << endl;
