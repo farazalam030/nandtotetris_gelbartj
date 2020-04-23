@@ -5,6 +5,7 @@
 #include <sstream>
 #include <map>
 #include <set>
+#include <vector>
 
 class JackTokenizer
 {
@@ -20,10 +21,11 @@ public:
 	int intVal(); // if tokenType == INT_CONST
 	std::string stringVal(); // if tokenType == STRING_CONST. Do not include double-quotes
 	void writeCurrToken(std::ofstream& destination);
-	std::streampos currPos();
+	int currPos();
 	std::ofstream& getOutputFile();
 	void close();
 	bool didFailOpen();
+	bool aborted();
 	~JackTokenizer();
 private:
 	std::ifstream inFile;
@@ -32,6 +34,8 @@ private:
 	std::stringstream strippedText;
 	void advanceWord();
 	std::string currWord;
+	std::map<int, int> lineNums;
+	bool abortFlag = false;
 	// char currChar;
 	Token currTokenType = Token::NONE;
 	bool failedOpen = false;

@@ -40,21 +40,21 @@ int main(int argc, char* argv[])
         }
         for (auto& p : dirIt) {
             if (p.path().extension().string() == ".jack")
-                files.push_back(p.path().filename().string());
+                files.push_back(p.path().string());
         }
     }
     else {
         files.push_back(fileOrDir);
     }
     
-    string fileWithDir;
+    // string fileWithDir;
 
     for (auto& file : files) {
         cout << "Loading " << file << endl;
-        fileWithDir = isDirectory ? fileOrDir + "/" + file : fileOrDir; // forward slash OK even on Windows
-        // string tokenOutput = fileWithDir.substr(0, fileWithDir.find_first_of(".")) + "T.xml";
-        string parserOutput = fileWithDir.substr(0, fileWithDir.find_first_of(".")) + ".xml";
-        JackTokenizer tokenizer(fileWithDir); //  , tokenOutput);
+
+        // string tokenOutput = fileWithDir.substr(0, fileWithDir.find_last_of(".")) + "T.xml";
+        string parserOutput = file.substr(0, file.find_last_of(".")) + ".xml";
+        JackTokenizer tokenizer(file); //  , tokenOutput);
         JackTokenizer* tokenPointer = &tokenizer;
         CompilationEngine ce(tokenPointer, parserOutput);
 

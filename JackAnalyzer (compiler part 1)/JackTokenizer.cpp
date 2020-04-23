@@ -37,6 +37,8 @@ const set<char> JackTokenizer::symbols = {
 
 static const char * tokens[] = { "keyword", "symbol", "identifier", "integerConstant", "stringConstant" };
 
+static const char* brightError = "\x1B[91mERROR\033[0m";
+
 JackTokenizer::JackTokenizer(std::string& inputFilename, std::string& outputFilename)
 {
 	inFile.open(inputFilename);
@@ -74,7 +76,10 @@ JackTokenizer::JackTokenizer(std::string& inputFilename)
 void JackTokenizer::stripAllComments() {
 	string line;
 	bool isMultiLine = false;
+	int lineNum = 0;
+	int writtenChars = 0;
 	while (getline(inFile, line)) {
+		++lineNum;
 		if (isMultiLine) {
 			size_t endOfComment = line.find("*/");
 			if (endOfComment == string::npos) {
@@ -87,6 +92,8 @@ void JackTokenizer::stripAllComments() {
 		}
 		isMultiLine = removeComments(line);
 		if (line.length() == 0) continue;
+		writtenChars += line.length() + 1; // plus 1 for space
+		lineNums.emplace(lineNum, writtenChars);
 		strippedText << line << " "; // use spaces instead of newline
 	}
 	strippedText.seekg(0);
@@ -141,8 +148,17 @@ bool JackTokenizer::hasMoreTokens()
 	return strippedText.good();
 }
 
-streampos JackTokenizer::currPos() {
-	return strippedText.tellg();
+int JackTokenizer::currPos() {
+	for (auto it = lineNums.begin(); it != lineNums.end(); it++) {
+		if (strippedText.tellg() < it->second) {
+			return it->first - 1;
+		}
+	}
+	return -1;
+}
+
+bool JackTokenizer::aborted() {
+	return abortFlag;
 }
 
 void JackTokenizer::advanceWord() {
@@ -188,8 +204,14 @@ void JackTokenizer::advance()
 	if (regex_match(currWord, m, stringexpr)) {
 		tempWord.erase(0, 1); // remove opening quote
 		size_t closeQuotePos = tempWord.find_first_of("\""); // ok to find first of since opening quote has been removed
-		while (closeQuotePos == string::npos && hasMoreTokens()) { // Continue until finding close quote. 
-			advanceWord();									// Open-ended loop like this would be bad without specification saying source file has no errors
+
+		while (closeQuotePos == string::npos) { // Continue until finding close quote. 
+			if (!hasMoreTokens()) {
+				cout << brightError << " in string literal, reached end of file without finding close quote ('\"'). Aborting." << endl;
+				abortFlag = true;
+				return;
+			}
+			advanceWord();									
 			tempWord = tempWord + " " + currWord;
 			closeQuotePos = tempWord.find_first_of("\"");
 		}

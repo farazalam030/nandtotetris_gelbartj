@@ -4,11 +4,12 @@
 
 using namespace std;
 
-// const char* nonTerminal[] = { "class", "classVarDec", "subroutineDec", "parameterList", "subroutineBody", "varDec", "statements", "letStatement", 
-// "ifStatement", "whileStatement", "doStatement", "returnStatement", "expression", "term", "expressionList" };
-// for reference only
+static const char* nonTerminal[] = { "class", "classVarDec", "subroutineDec", "parameterList", "subroutineBody", "varDec", "statements", "letStatement",
+	"ifStatement", "whileStatement", "doStatement", "returnStatement", "expression", "term", "expressionList" };
 
 static const char* tokens[] = { "keyword", "symbol", "identifier", "int constant", "string constant", "none" };
+
+static const char* brightError = "\x1B[91mERROR\033[0m";
 
 const map<Keyword, string> reverseKeywordList = {
 	{Keyword::CLASS, "class"},
@@ -43,7 +44,7 @@ CompilationEngine::CompilationEngine(JackTokenizer* tkA, std::string& outputFile
 		cout << "Opened file " << outputFilename << " for detailed XML output." << endl;
 	}
 	else {
-		cout << "Error opening file " << outputFilename << " for detailed output." << endl;
+		cout << brightError << " opening file " << outputFilename << " for detailed output." << endl;
 		failedOpen = true;
 	}
 	tk = tkA;
@@ -51,14 +52,15 @@ CompilationEngine::CompilationEngine(JackTokenizer* tkA, std::string& outputFile
 	if (tk->tokenType() == Token::KEYWORD && tk->keyword() == Keyword::CLASS)
 		compileClass();
 	else {
-		cout << "ERROR! File does not begin with class declaration." << endl;
+		cout << brightError << ": File does not begin with class declaration." << endl;
 	}
 }
 
 Status CompilationEngine::eat(Token tokenType, bool isOptional) {
+	if (tk->aborted()) return Status::FAILURE;
 	if (tk->tokenType() != tokenType) {
 		if (isOptional) return Status::NOT_FOUND;
-		cout << "Error at " << tk->currPos() << ", expected " << tokens[static_cast<int>(tokenType)] << ". Got " << tk->stringVal() << " instead." << endl;
+		cout << brightError << " at line " << tk->currPos() << ": Expected " << tokens[static_cast<int>(tokenType)] << " and got " << tk->stringVal() << " instead." << endl;
 		return Status::SYNTAX_ERROR;
 	}
 	else {
@@ -68,9 +70,10 @@ Status CompilationEngine::eat(Token tokenType, bool isOptional) {
 }
 
 Status CompilationEngine::eat(char symbol, bool isOptional) {
+	if (tk->aborted()) return Status::FAILURE;
 	if (tk->symbol() != symbol) {
 		if (isOptional) return Status::NOT_FOUND;
-		cout << "Error at " << tk->currPos() << ", expected " << symbol << ". Got " << tk->stringVal() << " instead." << endl;
+		cout << brightError << " at line " << tk->currPos() << ": Expected '" << symbol << "' and got '" << tk->stringVal() << "' instead." << endl;
 		return Status::SYNTAX_ERROR;
 	}
 	else {
@@ -80,9 +83,10 @@ Status CompilationEngine::eat(char symbol, bool isOptional) {
 }
 
 Status CompilationEngine::eat(Keyword keywordType, bool isOptional) {
+	if (tk->aborted()) return Status::FAILURE;
 	if (tk->keyword() != keywordType) {
 		if (isOptional) return Status::NOT_FOUND;
-		cout << "Error at " << tk->currPos() << ", expected " << reverseKeywordList.at(keywordType) << endl;
+		cout << brightError << " at line " << tk->currPos() << ": Expected " << reverseKeywordList.at(keywordType) << endl;
 		return Status::SYNTAX_ERROR;
 	}
 	else {
@@ -92,6 +96,7 @@ Status CompilationEngine::eat(Keyword keywordType, bool isOptional) {
 }
 
 Status CompilationEngine::eatType(bool includeVoid, bool isOptional) {
+	if (tk->aborted()) return Status::FAILURE;
 	if ((tk->tokenType() == Token::KEYWORD && 
 		(tk->keyword() == Keyword::INT || 
 			tk->keyword() == Keyword::BOOLEAN || 
@@ -103,7 +108,7 @@ Status CompilationEngine::eatType(bool includeVoid, bool isOptional) {
 	}
 	else {
 		if (isOptional) return Status::NOT_FOUND;
-		cout << "Error at " << tk->currPos() << ", expected type" << endl;
+		cout << brightError << " at line " << tk->currPos() << ": Expected type" << endl;
 		return Status::SYNTAX_ERROR;
 	}
 }
@@ -117,10 +122,11 @@ Status CompilationEngine::eatTypeWithVoid(bool isOptional) {
 }
 
 Status CompilationEngine::eatOp(bool isOptional) {
+	if (tk->aborted()) return Status::FAILURE;
 	auto opIt = tk->tokenType() == Token::SYMBOL ? ops.find(tk->symbol()) : ops.end();
 	if (opIt == ops.end()) {
 		if (isOptional) return Status::NOT_FOUND;
-		cout << "Error at " << tk->currPos() << ", expected operator. Got " << tk->stringVal() << " instead." << endl;
+		cout << brightError << " at line " << tk->currPos() << ": Expected operator. Got " << tk->stringVal() << " instead." << endl;
 		return Status::SYNTAX_ERROR;
 	}
 	else {
@@ -131,8 +137,10 @@ Status CompilationEngine::eatOp(bool isOptional) {
 
 
 void CompilationEngine::writeTkAndAdvance() {
-	tk->writeCurrToken(outFile);
-	tk->advance();
+	if (!tk->aborted()) {
+		tk->writeCurrToken(outFile);
+		tk->advance();
+	}
 }
 
 void CompilationEngine::compileClass()
@@ -142,10 +150,10 @@ void CompilationEngine::compileClass()
 	eat(Token::IDENTIFIER);
 	eat('{');
 	if (tk->tokenType() == Token::KEYWORD) {
-		while (tk->keyword() == Keyword::STATIC || tk->keyword() == Keyword::FIELD) {
+		while (!tk->aborted() && (tk->keyword() == Keyword::STATIC || tk->keyword() == Keyword::FIELD)) {
 			compileClassVarDec();	
 		}
-		while (tk->keyword() == Keyword::CONSTRUCTOR || tk->keyword() == Keyword::FUNCTION || tk->keyword() == Keyword::METHOD) {
+		while (!tk->aborted() && (tk->keyword() == Keyword::CONSTRUCTOR || tk->keyword() == Keyword::FUNCTION || tk->keyword() == Keyword::METHOD)) {
 			compileSubroutineDec();
 		}
 	}
@@ -153,13 +161,21 @@ void CompilationEngine::compileClass()
 	outFile << "</class>";
 }
 
+void CompilationEngine::checkVarDec() {
+	auto varsIt = definedVars.find(tk->stringVal());
+	if (varsIt == definedVars.end()) definedVars.insert(tk->stringVal());
+	else cout << brightError << " at line " << tk->currPos() << ": Attempting redefinition of already defined variable \"" << tk->stringVal() << "\"" << endl;
+}
+
 void CompilationEngine::compileClassVarDec()
 {
 	outFile << "<classVarDec>" << endl;
 	eat(Token::KEYWORD);
 	eatType();
+	checkVarDec();
 	eat(Token::IDENTIFIER);
 	while (eat(',', true) == Status::OK) {
+		checkVarDec();
 		eat(Token::IDENTIFIER);
 	}
 	eat(';');
@@ -197,7 +213,7 @@ void CompilationEngine::compileSubroutineBody()
 {
 	outFile << "<subroutineBody>" << endl;
 	eat('{');
-	while (tk->tokenType() == Token::KEYWORD && tk->keyword() == Keyword::VAR) {
+	while (!tk->aborted() && tk->tokenType() == Token::KEYWORD && tk->keyword() == Keyword::VAR) {
 		compileVarDec();
 	}
 	compileStatements();
@@ -210,8 +226,10 @@ void CompilationEngine::compileVarDec()
 	outFile << "<varDec>" << endl;
 	eat(Keyword::VAR);
 	eatType();
-	eat(Token::IDENTIFIER); // later, add logic here to insert this variable into a symbol table
+	checkVarDec();
+	eat(Token::IDENTIFIER);
 	while (eat(',', true) == Status::OK) {
+		checkVarDec();
 		eat(Token::IDENTIFIER);
 	}
 	eat(';');
@@ -221,7 +239,7 @@ void CompilationEngine::compileVarDec()
 void CompilationEngine::compileStatements()
 {
 	outFile << "<statements>" << endl;
-	while (tk->tokenType() == Token::KEYWORD) {
+	while (!tk->aborted() && tk->tokenType() == Token::KEYWORD) {
 		switch (tk->keyword()) {
 			case Keyword::LET:
 				compileLet();
@@ -248,6 +266,10 @@ void CompilationEngine::compileLet()
 {
 	outFile << "<letStatement>" << endl;
 	eat(Keyword::LET);
+	auto varsIt = definedVars.find(tk->stringVal());
+	if (varsIt == definedVars.end()) {
+		cout << brightError << " at line " << tk->currPos() << ": Attempting to assign value to undeclared variable \"" << tk->stringVal() << "\"" << endl;
+	}
 	eat(Token::IDENTIFIER);
 	if (eat('[', true) == Status::OK) {
 		compileExpression();

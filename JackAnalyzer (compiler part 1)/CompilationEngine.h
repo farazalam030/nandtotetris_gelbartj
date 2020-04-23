@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <fstream>
+#include <set>
 #include "JackTokenizer.h"
 
 class CompilationEngine
@@ -30,6 +31,9 @@ private:
 	bool failedOpen = false;
 	JackTokenizer* tk;
 	void writeTkAndAdvance();
+	std::set<std::string> definedVars;
+	void checkVarDec();
+	// std::set<std::string> definedFuns;
 	Status eat(Keyword keywordType, bool isOptional = false);
 	Status eat(Token tokenType, bool isOptional = false);
 	Status eat(char symbol, bool isOptional = false);
