@@ -26,34 +26,38 @@ int main(int argc, char *argv[])
     auto start = chrono::high_resolution_clock::now();
     auto dotLoc = fileOrDir.find_first_of(".");
     bool isDirectory = false;
-    vector<string> files;
+    vector<filesystem::path> files;
 
     if (dotLoc == string::npos) {
         isDirectory = true;
     }
-    if (isDirectory) {
-        filesystem::directory_iterator dirIt;
-        try {
-            dirIt = filesystem::directory_iterator(fileOrDir);
+
+    filesystem::directory_iterator dirIt;
+    try {
+        dirIt = filesystem::directory_iterator(isDirectory ? fileOrDir : ".");
+    }
+    catch (filesystem::filesystem_error) {
+        std::cout << "Invalid directory name, unable to open. Closing..." << endl;
+        return -1;
+    }
+    for (auto& p : dirIt) {
+        if (!isDirectory) {
+            if (p.path().filename().string() == fileOrDir) {
+                files.push_back(p.path());
+                break;
+            }
         }
-        catch (filesystem::filesystem_error) {
-            cout << "Invalid directory name, unable to open. Closing..." << endl;
-            return -1;
-        }
-        for (auto& p : dirIt) {
+        else {
             if (p.path().extension().string() == ".vm")
-                files.push_back(p.path().filename().string());
+                files.push_back(p.path());
         }
     }
-    else {
-        files.push_back(fileOrDir);
-    }
+
     string outputName = fileOrDir.substr(0, fileOrDir.find_first_of(".")) + ".asm";
     CodeWriter codeWriter(outputName);
     if (isDirectory) {
         codeWriter.writeInit();
     }
-    string fileWithDir;
     for (auto it = files.begin(); it != files.end(); ++it) {
         if (*it == "Sys.vm") { // make sure Sys.vm is always translated first if it exists
             iter_swap(it, files.begin());
@@ -61,13 +65,12 @@ int main(int argc, char *argv[])
         }
     }
     for (auto& file : files) {
-        cout << "Loading " << file << endl;
-        fileWithDir = isDirectory ? fileOrDir + "/" + file : fileOrDir; // forward slash OK even on Windows
-        Parser parser(fileWithDir);
+        std::cout << "Loading " << file << endl;
+        Parser parser(file.string());
         if (parser.didFailOpen()) {
             return -1;
         }
-        codeWriter.setFilename(file);
+        codeWriter.setFilename(file.filename().string());
 
         while (parser.hasMoreCommands()) {
             parser.advance();

@@ -20,7 +20,7 @@ public:
 	std::string identifier(); // if tokenType == IDENTIFIER. output <, >, " and & as &lt;, &gt;, &quote; and &amp;
 	int intVal(); // if tokenType == INT_CONST
 	std::string stringVal(); // if tokenType == STRING_CONST. Do not include double-quotes
-	void writeCurrToken(std::ofstream& destination);
+	void writeCurrToken(std::ofstream& destination, bool jsonMode=false);
 	int currPos();
 	std::ofstream& getOutputFile();
 	void close();

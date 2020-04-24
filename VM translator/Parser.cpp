@@ -22,7 +22,7 @@ const map<string, Command> Parser::commandMap = {
 	{ "//",       Command::COMMENT }
 };
 
-Parser::Parser(string& filename)
+Parser::Parser(string filename)
 {
 	vmFile.open(filename);
 	if (vmFile.is_open()) {
@@ -54,7 +54,7 @@ void Parser::removeWhitespace(string& line) {
 		return;
 	}
 
-	size_t slashPos = line.find_first_of("//");
+	size_t slashPos = line.find("//");
 	if (slashPos != string::npos && slashPos > 0) { // remove inline comments only
 		line.erase(slashPos);
 	}
@@ -124,7 +124,7 @@ int Parser::arg2()
 	return NAN;
 }
 
-string Parser::getCurrLine() {
+string& Parser::getCurrLine() {
 	return currLine;
 }
 

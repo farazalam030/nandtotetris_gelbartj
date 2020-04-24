@@ -7,7 +7,7 @@
 class CompilationEngine
 {
 public:
-	CompilationEngine(JackTokenizer *tkA, std::string& outputFilename); // must call compileClass
+	CompilationEngine(JackTokenizer *tkA, std::string& outputFilename, bool jsonMode = false); // must call compileClass
 	void compileClass();
 	void compileClassVarDec();
 	void compileSubroutineDec();
@@ -34,6 +34,9 @@ private:
 	std::set<std::string> definedVars;
 	void checkVarDec();
 	// std::set<std::string> definedFuns;
+	bool jsonMode;
+	std::string makeOpenTag(NonTerminal, bool isList = false);
+	std::string makeCloseTag(NonTerminal, bool isList = false);
 	Status eat(Keyword keywordType, bool isOptional = false);
 	Status eat(Token tokenType, bool isOptional = false);
 	Status eat(char symbol, bool isOptional = false);

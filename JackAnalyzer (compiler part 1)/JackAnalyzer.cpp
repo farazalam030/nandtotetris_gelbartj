@@ -56,7 +56,7 @@ int main(int argc, char* argv[])
         string parserOutput = file.substr(0, file.find_last_of(".")) + ".xml";
         JackTokenizer tokenizer(file); //  , tokenOutput);
         JackTokenizer* tokenPointer = &tokenizer;
-        CompilationEngine ce(tokenPointer, parserOutput);
+        CompilationEngine ce(tokenPointer, parserOutput, false);
 
         if (ce.didFailOpen()) {
             return -1;

@@ -14,7 +14,7 @@ public:
 	void writeArithmetic(std::string& command);
 	void writePushPop(Command command, std::string& segment, int index); // command argument should be C_PUSH or C_POP only
 
-	void setFilename(std::string& filename);
+	void setFilename(std::string filename);
 	void writeInit();
 	void writeLabel(std::string& label);
 	void writeGoto(std::string& label);
@@ -22,7 +22,10 @@ public:
 	void writeFunction(std::string& functionName, int numVars);
 	void writeCall(std::string& functionName, int numArgs);
 	void writeReturn();
-	void writeComment(std::string comment);
+	void writeComment(std::string& comment);
+
+	void writeReturnBootstrap();
+	void writeCallBootstrap();
 
 	void close(); // close output file
 

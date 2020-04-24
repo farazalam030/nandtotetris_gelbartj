@@ -10,7 +10,7 @@ class Parser
 // Ignore all white space and comments in vm file
 {
 public:
-	Parser(std::string& filename); // open file
+	Parser(std::string filename); // open file
 	bool didFailOpen();
 
 	bool hasMoreCommands(); // more commands in current input?
@@ -23,7 +23,7 @@ public:
 
 	int arg2(); // returns second argument if current command is C_PUSH, C_POP, C_FUNCTION or C_CALL
 
-	std::string getCurrLine();
+	std::string& getCurrLine();
 	void close();
 
 	~Parser();

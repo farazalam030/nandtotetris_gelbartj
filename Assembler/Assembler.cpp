@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 #include <sstream>
-#include <regex>
+#include <algorithm>
 #include <bitset>
 #include <chrono>
 
@@ -58,17 +58,17 @@ void Assembler::convertCommands() {
 	binaryFile.open(newFilename);
 	while (getline(codeNoCommentsLabels, line)) {
 		if (line.at(0) == '@') {
-			binaryFile << convertACommand(line) << endl;
+			convertACommand(line);
 		}
 		else {
-			binaryFile << convertCCommand(line) << endl;
+			convertCCommand(line);
 		}
 	}
 	binaryFile.close();
 }
 
 void Assembler::removeComments(string& line) {
-	size_t slashPos = line.find_first_of("//");
+	size_t slashPos = line.find("//");
 	if (slashPos == 0) { // entire line is a comment
 		line.clear();
 		return;
@@ -96,22 +96,23 @@ bool is_number(const std::string& s) {
 	return !s.empty() && std::all_of(s.begin(), s.end(), ::isdigit);
 }
 
-string Assembler::convertACommand(string& command) {
+void Assembler::convertACommand(string& command) {
 	// Can assume passed a command starting with "@"
 	command.erase(0,1);
 
 	if (is_number(command)) {
 		int binary = stoi(command);
-		return bitset<16>(binary).to_string();
+		binaryFile << bitset<16>(binary).to_string() << endl;
+		return;
 	}
 
 	auto [it, madeInsertion] = symbolTable.try_emplace(command, latestFreeMem);
 	if (madeInsertion) ++latestFreeMem;
 
-	return bitset<16>(it->second).to_string();
+	binaryFile << bitset<16>(it->second).to_string() << endl;
 }
 
-string Assembler::convertCCommand(string_view command) {
+void Assembler::convertCCommand(string_view command) {
 	string jumpBits = "000";
 	string compBits;
 	string destBits = "000";
@@ -129,7 +130,7 @@ string Assembler::convertCCommand(string_view command) {
 		compBits = compMap.at(command.substr(0, jumpStart));
 	}
 
-	return "111" + compBits + destBits + jumpBits;
+	binaryFile << "111" + compBits + destBits + jumpBits << endl;
 }
 
 Assembler::~Assembler() {

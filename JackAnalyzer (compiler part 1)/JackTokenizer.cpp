@@ -243,7 +243,14 @@ void JackTokenizer::advance()
 	}
 }
 
-void JackTokenizer::writeCurrToken(ofstream& destination) {
+void JackTokenizer::writeCurrToken(ofstream& destination, bool jsonMode) {
+	if (jsonMode) {
+		destination << "\"" << tokens[static_cast<int>(currTokenType)] << "\":";
+		if (tokenType() != Token::INT_CONST) destination << "\"" << currToken << "\"";
+		else destination << currToken;
+		destination << "," << endl;
+		return;
+	}
 	string tokenToWrite = currToken;
 	if (tokenToWrite == "<") {
 		tokenToWrite = "&lt;";

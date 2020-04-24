@@ -37,7 +37,7 @@ const map<Keyword, string> reverseKeywordList = {
 
 const set<char> ops = { '+', '-', '*', '/', '&', '|', '<', '>', '=' };
 
-CompilationEngine::CompilationEngine(JackTokenizer* tkA, std::string& outputFilename)
+CompilationEngine::CompilationEngine(JackTokenizer* tkA, std::string& outputFilename, bool useJson) : tk(tkA), jsonMode(useJson)
 {
 	outFile.open(outputFilename);
 	if (outFile.is_open()) {
@@ -47,7 +47,6 @@ CompilationEngine::CompilationEngine(JackTokenizer* tkA, std::string& outputFile
 		cout << brightError << " opening file " << outputFilename << " for detailed output." << endl;
 		failedOpen = true;
 	}
-	tk = tkA;
 	tk->advance();
 	if (tk->tokenType() == Token::KEYWORD && tk->keyword() == Keyword::CLASS)
 		compileClass();
@@ -138,14 +137,24 @@ Status CompilationEngine::eatOp(bool isOptional) {
 
 void CompilationEngine::writeTkAndAdvance() {
 	if (!tk->aborted()) {
-		tk->writeCurrToken(outFile);
+		tk->writeCurrToken(outFile, jsonMode);
 		tk->advance();
 	}
 }
 
+string CompilationEngine::makeOpenTag(NonTerminal nt, bool isList) {
+	string tagName = nonTerminal[static_cast<int>(nt)];
+	return (jsonMode ? "\"" + tagName + "\": " + (isList ? "[" : "{") : "<" + tagName + ">") + "\n";
+}
+
+string CompilationEngine::makeCloseTag(NonTerminal nt, bool isList) {
+	string tagName = nonTerminal[static_cast<int>(nt)];
+	return (jsonMode ? (isList ? "]," : "},") : "</" + tagName + ">") + "\n";
+}
+
 void CompilationEngine::compileClass()
 {
-	outFile << "<class>" << endl;
+	outFile << makeOpenTag(NonTerminal::CLASS);
 	eat(Keyword::CLASS);
 	eat(Token::IDENTIFIER);
 	eat('{');
@@ -158,7 +167,7 @@ void CompilationEngine::compileClass()
 		}
 	}
 	eat('}');
-	outFile << "</class>";
+	outFile << makeCloseTag(NonTerminal::CLASS);
 }
 
 void CompilationEngine::checkVarDec() {
@@ -169,7 +178,7 @@ void CompilationEngine::checkVarDec() {
 
 void CompilationEngine::compileClassVarDec()
 {
-	outFile << "<classVarDec>" << endl;
+	outFile << makeOpenTag(NonTerminal::CLASS_VAR_DEC);
 	eat(Token::KEYWORD);
 	eatType();
 	checkVarDec();
@@ -179,12 +188,12 @@ void CompilationEngine::compileClassVarDec()
 		eat(Token::IDENTIFIER);
 	}
 	eat(';');
-	outFile << "</classVarDec>" << endl;
+	outFile << makeCloseTag(NonTerminal::CLASS_VAR_DEC);
 }
 
 void CompilationEngine::compileSubroutineDec()
 {
-	outFile << "<subroutineDec>" << endl;
+	outFile << makeOpenTag(NonTerminal::SUBROUTINE_DEC);
 	eat(Token::KEYWORD);
 	eatTypeWithVoid();
 	eat(Token::IDENTIFIER);
@@ -192,12 +201,12 @@ void CompilationEngine::compileSubroutineDec()
 	compileParameterList();
 	eat(')');
 	compileSubroutineBody();
-	outFile << "</subroutineDec>" << endl;
+	outFile << makeCloseTag(NonTerminal::SUBROUTINE_DEC);
 }
 
 void CompilationEngine::compileParameterList()
 {
-	outFile << "<parameterList>" << endl;
+	outFile << makeOpenTag(NonTerminal::PARAMETER_LIST, true);
 	if (eatType(true) == Status::OK) {
 		eat(Token::IDENTIFIER);
 		while (eat(',', true) == Status::OK) {
@@ -206,24 +215,24 @@ void CompilationEngine::compileParameterList()
 		}
 	}
 	// list can be empty
-	outFile << "</parameterList>" << endl; 
+	outFile << makeCloseTag(NonTerminal::PARAMETER_LIST, true);
 }
 
 void CompilationEngine::compileSubroutineBody()
 {
-	outFile << "<subroutineBody>" << endl;
+	outFile << makeOpenTag(NonTerminal::SUBROUTINE_BODY);
 	eat('{');
 	while (!tk->aborted() && tk->tokenType() == Token::KEYWORD && tk->keyword() == Keyword::VAR) {
 		compileVarDec();
 	}
 	compileStatements();
 	eat('}');
-	outFile << "</subroutineBody>" << endl;
+	outFile << makeCloseTag(NonTerminal::SUBROUTINE_BODY);
 }
 
 void CompilationEngine::compileVarDec()
 {
-	outFile << "<varDec>" << endl;
+	outFile << makeOpenTag(NonTerminal::VAR_DEC);
 	eat(Keyword::VAR);
 	eatType();
 	checkVarDec();
@@ -233,12 +242,12 @@ void CompilationEngine::compileVarDec()
 		eat(Token::IDENTIFIER);
 	}
 	eat(';');
-	outFile << "</varDec>" << endl;
+	outFile << makeCloseTag(NonTerminal::VAR_DEC);
 }
 
 void CompilationEngine::compileStatements()
 {
-	outFile << "<statements>" << endl;
+	outFile << makeOpenTag(NonTerminal::STATEMENTS);
 	bool endFlag = false;
 	while (!tk->aborted() && tk->tokenType() == Token::KEYWORD && !endFlag) {
 		switch (tk->keyword()) {
@@ -263,12 +272,12 @@ void CompilationEngine::compileStatements()
 		}
 		// cout << "Current token is " << tk->stringVal() << endl;
 	}
-	outFile << "</statements>" << endl;
+	outFile << makeCloseTag(NonTerminal::STATEMENTS);
 }
 
 void CompilationEngine::compileLet()
 {
-	outFile << "<letStatement>" << endl;
+	outFile << makeOpenTag(NonTerminal::LET);
 	eat(Keyword::LET);
 	auto varsIt = definedVars.find(tk->stringVal());
 	if (varsIt == definedVars.end()) {
@@ -282,12 +291,12 @@ void CompilationEngine::compileLet()
 	eat('=');
 	compileExpression();
 	eat(';');
-	outFile << "</letStatement>" << endl;
+	outFile << makeCloseTag(NonTerminal::LET);
 }
 
 void CompilationEngine::compileIf()
 {
-	outFile << "<ifStatement>" << endl;
+	outFile << makeOpenTag(NonTerminal::IF);
 	eat(Keyword::IF);
 	eat('(');
 	compileExpression();
@@ -300,12 +309,12 @@ void CompilationEngine::compileIf()
 		compileStatements();
 		eat('}');
 	}
-	outFile << "</ifStatement>" << endl;
+	outFile << makeCloseTag(NonTerminal::IF);
 }
 
 void CompilationEngine::compileWhile()
 {
-	outFile << "<whileStatement>" << endl;
+	outFile << makeOpenTag(NonTerminal::WHILE);
 	eat(Keyword::WHILE);
 	eat('(');
 	compileExpression();
@@ -313,12 +322,12 @@ void CompilationEngine::compileWhile()
 	eat('{');
 	compileStatements();
 	eat('}');
-	outFile << "</whileStatement>" << endl;
+	outFile << makeCloseTag(NonTerminal::WHILE);
 }
 
 void CompilationEngine::compileDo()
 {
-	outFile << "<doStatement>" << endl;
+	outFile << makeOpenTag(NonTerminal::DO);
 	eat(Keyword::DO);
 	eat(Token::IDENTIFIER);
 	if (eat('.', true) == Status::OK) {
@@ -328,30 +337,30 @@ void CompilationEngine::compileDo()
 	compileExpressionList();
 	eat(')');
 	eat(';');
-	outFile << "</doStatement>" << endl;
+	outFile << makeCloseTag(NonTerminal::DO);
 }
 
 void CompilationEngine::compileReturn()
 {
-	outFile << "<returnStatement>" << endl;
+	outFile << makeOpenTag(NonTerminal::RETURN);
 	eat(Keyword::RETURN);
 	if (eat(';', true) == Status::OK) {
-		outFile << "</returnStatement>" << endl;
+		outFile << makeCloseTag(NonTerminal::RETURN);
 		return;
 	}
 	compileExpression();
 	eat(';');
-	outFile << "</returnStatement>" << endl;
+	outFile << makeCloseTag(NonTerminal::RETURN);
 }
 
 void CompilationEngine::compileExpression()
 {
-	outFile << "<expression>" << endl;
+	outFile << makeOpenTag(NonTerminal::EXPRESSION);
 	compileTerm();
 	while (eatOp(true) == Status::OK) {
 		compileTerm();
 	}
-	outFile << "</expression>" << endl;
+	outFile << makeCloseTag(NonTerminal::EXPRESSION);
 }
 
 bool isKeywordConst(Keyword key) {
@@ -360,7 +369,7 @@ bool isKeywordConst(Keyword key) {
 
 void CompilationEngine::compileTerm()
 {
-	outFile << "<term>" << endl;
+	outFile << makeOpenTag(NonTerminal::TERM);
 	if (eat(Token::IDENTIFIER, true) == Status::OK) {
 		if (eat('[', true) == Status::OK) {
 			compileExpression();
@@ -390,21 +399,21 @@ void CompilationEngine::compileTerm()
 		compileTerm();
 	}
 
-	outFile << "</term>" << endl;
+	outFile << makeCloseTag(NonTerminal::TERM);
 }
 
 void CompilationEngine::compileExpressionList()
 {
-	outFile << "<expressionList>" << endl;
+	outFile << makeOpenTag(NonTerminal::EXPRESSION_LIST);
 	if (tk->tokenType() == Token::SYMBOL && tk->symbol() == ')') {
-		outFile << "</expressionList>" << endl;
+		outFile << makeCloseTag(NonTerminal::EXPRESSION_LIST);
 		return;
 	}
 	compileExpression();
 	while (eat(',', true) == Status::OK) {
 		compileExpression();
 	}
-	outFile << "</expressionList>" << endl;
+	outFile << makeCloseTag(NonTerminal::EXPRESSION_LIST);
 }
 
 void CompilationEngine::close()

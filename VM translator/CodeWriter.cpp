@@ -29,8 +29,7 @@ void CodeWriter::writeArithmetic(std::string& command)
 	string output = ("// " + command + "\n");
 	// Get first value from stack
 	output += "@SP\n"
-		"M=M-1\n"
-		"A=M\n";
+		"AM=M-1\n";
 	if (command == "neg") {
 		output += "M=-M\n"
 			"@SP\n"
@@ -48,8 +47,7 @@ void CodeWriter::writeArithmetic(std::string& command)
 	// Save first value and get second value from stack
 	output += "D=M\n"
 		"@SP\n"
-		"M=M-1\n"
-		"A=M\n";
+		"AM=M-1\n";
 	// Now D holds the first value (y) and M holds the second value (x)
 	if (command == "add") {
 		output += "M=M+D\n";
@@ -103,7 +101,7 @@ string CodeWriter::getSegmentReference(string& segment, int index) {
 		return "@" + to_string(index) + "\n";
 	}
 	else if (segment == "static") {
-		return "@" + inputFilename.substr(0, inputFilename.find_first_of(".") + 1) + to_string(index) + "\n";
+		return "@" + inputFilename.substr(0, inputFilename.find_last_of(".") + 1) + to_string(index) + "\n";
 	}
 	else if (segment == "temp") {
 		if (TEMP_START + index > 12) {
@@ -165,40 +163,37 @@ void CodeWriter::writePushPop(Command command, string& segment, int index)
 				"@" + segmentMap.find(segment)->second + "\n"
 				"D=D+M\n"  // address of where we want to store popped item now held in D
 				"@SP\n"
-				"M=M-1\n"
-				"A=M\n"
-				"D=M+D\n"  // add address to popped value, since only have one register to work with
+				"AM=M-1\n"
+				"D=M+D\n"  // add address to popped value, since we only have one register to work with
 				"A=D-M\n"  // undo previous operation to extract original address and jump to it
 				"M=D-A\n"; // subtract address from D to get popped value
 		} 
 
 		else {
 			output += "@SP\n"
-				"M=M-1\n"
-				"A=M\n"
+				"AM=M-1\n"
 				"D=M\n" // last element in stack is now stored in D
-				+ getSegmentReference(segment, index) + // M is now at referenced segment and index
+				+ getSegmentReference(segment, index) + // A/M is now at referenced segment and index
 				"M=D\n";
 		}
 	}
 	else if (command == Command::C_PUSH) { 
 		output += "// push " + segment + " " + to_string(index) + "\n";
 		
-		output += getSegmentReference(segment, index); // M is now at referenced segment and index
+		output += getSegmentReference(segment, index); // A/M is now at referenced segment and index
 
 		if (segment == "constant") output += "D=A\n";
 		else output += "D=M\n";
 		output += "@SP\n"
-			"A=M\n"
-			"M=D\n"
-			"@SP\n"
-			"M=M+1\n";
+			"M=M+1\n"
+			"A=M-1\n"
+			"M=D\n";
 	}
 
 	outputFile << output;
 }
 
-void CodeWriter::setFilename(std::string& filename)
+void CodeWriter::setFilename(std::string filename)
 {
 	inputFilename = filename;
 	funcPrefix = ""; // this was previously included in case the VM translator was expected to add a filename prefix to functions.
@@ -211,9 +206,15 @@ void CodeWriter::writeInit()
 	outputFile << "@256\n"
 		"D=A\n"
 		"@SP\n"
-		"M=D\n";
+		"M=D\n"
+		"@SysInit\n"
+		"0;JMP\n";
 	
-	string init = "Sys.init";
+	writeCallBootstrap();
+	writeReturnBootstrap();
+
+	outputFile << "(SysInit)\n";
+	string init = "Sys.init"; // writeCall requires string reference. annoying but saves extra copies on every subsequent call
 	writeCall(init, 0);
 }
 
@@ -234,8 +235,7 @@ void CodeWriter::writeIf(std::string& label)
 {
 	outputFile << "// if-goto " + label + "\n"
 		"@SP\n" // pop latest item on stack and save in D
-		"M=M-1\n"
-		"A=M\n"
+		"AM=M-1\n"
 		"D=M\n"
 		"@" + funcPrefix + currFunction + "$" + label + "\n"
 		"D;JNE\n"; // jump if latest item on the stack is not false.
@@ -257,8 +257,7 @@ void CodeWriter::writeFunction(std::string& functionName, int numVars)
 		for (int i = 0; i < numVars; ++i) {
 			outputFile << "M=0\n"
 				"@SP\n"
-				"M=M+1\n"
-				"A=M\n";
+				"AM=M+1\n";
 		}
 	}
 }
@@ -278,26 +277,47 @@ void CodeWriter::writeCall(std::string& functionName, int numArgs)
 		functionCallCount.emplace(currFunction, 1);
 	}
 
-	const string saveVar = "D=M\n"
-		"@SP\n"
-		"A=M\n"
-		"M=D\n"
-		"@SP\n"
-		"M=M+1\n";
+	
 
 	// callCount tracks the number of calls made within the current function
 	const string returnSymbol = funcPrefix + currFunction + "$ret." + to_string(callCount);
 
+	// store numArgs in R13, returnSymbol in R14, and function name (address) in R15, then call bootstrap code
 	outputFile << "// call " + functionName + " " + to_string(numArgs) + "\n"
+		"@" + to_string(numArgs) + "\n"
+		"D=A\n"
+		"@R13\n"
+		"M=D\n"
+		"@" + returnSymbol + "\n"
+		"D=A\n"
+		"@R14\n"
+		"M=D\n"
+		"@" + funcPrefix + functionName + "\n"
+		"D=A\n"
+		"@R15\n"
+		"M=D\n"
+		"@__CallBootstrap__\n"
+		"0;JMP\n"
+		"(" + returnSymbol + ")\n";
+		// return here when finished with function call
+}
+
+void CodeWriter::writeCallBootstrap() {
+	const string saveVar = "D=M\n"
+		"@SP\n"
+		"M=M+1\n"
+		"A=M-1\n"
+		"M=D\n";
+
+	outputFile << "(__CallBootstrap__)\n"
 		"@SP\n" // at point function is called, SP will be pointing to return address spot. This spot - numArgs will be arg0. Which means if numArgs = 0, they will be in the same spot! This case is handled in the return function
 		"A=M\n"
 		"D=A\n"
-		"@" + to_string(numArgs) + "\n"
-		"D=D-A\n"
-		"@R13\n"
+		"@R13\n" // numArgs
+		"D=D-M\n"
 		"M=D\n" // address of arg 0 now stored in R13. can't reset as new ARG until existing value is saved
-		"@" + returnSymbol + "\n"
-		"D=A\n"
+		"@R14\n" // returnSymbol
+		"D=M\n"
 		"@SP\n"
 		"A=M\n"
 		"M=D\n" // address of return spot now stored here
@@ -315,16 +335,14 @@ void CodeWriter::writeCall(std::string& functionName, int numArgs)
 		"D=M\n"
 		"@ARG\n"
 		"M=D\n" // address of new (callee's) arg 0 now stored in @ARG
-		"@" + funcPrefix + functionName + "\n"
-		"0;JMP\n"
-		"(" + returnSymbol + ")\n";
-		// return here when finished with function call
+		"@R15\n" // function name
+		"A=M\n"
+		"0;JMP\n";
 }
 
-void CodeWriter::writeReturn()
-{
-	outputFile << "// return\n"
-		// restore saved frame, starting with THAT
+void CodeWriter::writeReturnBootstrap() {
+	// restore saved frame, starting with THAT
+	outputFile << "(__ReturnBootstrap__)\n"
 		"@LCL\n"
 		"A=M-1\n"
 		"D=M\n"
@@ -338,14 +356,14 @@ void CodeWriter::writeReturn()
 		"@THIS\n"
 		"M=D\n"
 
-		// save return address in R15, otherwise it will be overwritten if the function has no args.
+		// save return address in R14, otherwise it will be overwritten if the function has no args.
 		// return address is five spots behind callee's LCL
 		"@5\n"
 		"D=A\n"
 		"@LCL\n"
 		"A=M-D\n"
 		"D=M\n"
-		"@R15\n"
+		"@R14\n"
 		"M=D\n"
 		// copy last item on stack to arg 0
 		"@SP\n"
@@ -376,13 +394,19 @@ void CodeWriter::writeReturn()
 		"@LCL\n"
 		"M=D\n"
 
-		"@R15\n"
+		"@R14\n"
 		"A=M\n"
 		"0;JMP\n";
 }
 
-void CodeWriter::writeComment(string comment) {
-	// Does not accept a reference because that would require creating a new string object from the main method anyway. No advantage.
+void CodeWriter::writeReturn()
+{
+	outputFile << "// return\n"
+		"@__ReturnBootstrap__\n"
+		"0;JMP\n";
+}
+
+void CodeWriter::writeComment(string& comment) {
 	outputFile << "// " << comment << endl; // double set of "//" will indicate comments from vm file
 }
 
