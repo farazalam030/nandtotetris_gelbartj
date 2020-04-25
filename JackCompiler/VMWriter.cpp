@@ -32,6 +32,14 @@ void VMWriter::writePop(Segment segment, int index)
 
 void VMWriter::writeArithmetic(Command command)
 {
+	if (command == Command::MULT) {
+		outFile << "call Math.multiply 2" << endl;
+		return;
+	}
+	else if (command == Command::DIV) {
+		outFile << "call Math.divide 2" << endl;
+		return;
+	}
 	outFile << commands[static_cast<int>(command)] << endl;
 }
 

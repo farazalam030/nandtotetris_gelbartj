@@ -25,9 +25,8 @@ public:
 	void compileReturn();
 	void compileExpression();
 	void compileTerm(); // need extra lookahead to check for [, ( or .
-	void compileExpressionList();
-	void compileIdentifier(bool beingDefined, bool isSubroutine, std::optional<std::reference_wrapper<std::string>> savedToken);
-	void compileIdentifier(bool beingDefined, bool isSubroutine);
+	int compileExpressionList();
+	void compileIdentifier(bool beingDefined, bool isSubroutine, const std::string& savedToken = std::string(), int argCount = 0);
 	void compileTermIdentifier();
 	~CompilationEngine();
 private:
@@ -45,7 +44,7 @@ private:
 	Status eatType(bool includeVoid, bool isOptional);
 	Status eatType(bool isOptional = false);
 	Status eatTypeWithVoid(bool isOptional = false);
-	Status eatOp(bool isOptional = false);
+	Status eatOp(bool isOptional = false, bool noAdvance = false);
 	SymbolTable classTable;
 	SymbolTable subroutineTable;
 };

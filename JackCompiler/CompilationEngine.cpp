@@ -1,6 +1,8 @@
 #include "CompilationEngine.h"
 #include "Shared.h"
 #include <iostream>
+#include <random>
+#include <optional>
 
 using namespace std;
 
@@ -35,7 +37,18 @@ const map<Keyword, string> reverseKeywordList = {
 	{Keyword::THIS, "this" }
 };
 
-const set<char> ops = { '+', '-', '*', '/', '&', '|', '<', '>', '=' };
+// const set<char> ops = { '+', '-', '*', '/', '&', '|', '<', '>', '=' };
+const map<char, Command> opMap = {
+	{ '+', Command::ADD },
+	{ '-', Command::SUB },
+	{ '*', Command::MULT },
+	{ '/', Command::DIV },
+	{ '&', Command::AND },
+	{ '|', Command::OR },
+	{ '<', Command::LT },
+	{ '>', Command::GT },
+	{ '=', Command::EQ }
+};
 
 CompilationEngine::CompilationEngine(JackTokenizer* tkA, VMWriter* vmA) : tk(tkA), vm(vmA)
 {
@@ -56,7 +69,7 @@ Status CompilationEngine::eat(Token tokenType, bool isOptional) {
 	}
 	else {
 		if (tk->tokenType() == Token::INT_CONST)
-			vm->writePush(Segment::CONSTANT, tk->intVal());
+			vm->writePush(Segment::CONST, tk->intVal());
 		writeTkAndAdvance();
 		return Status::OK;
 	}
@@ -83,6 +96,19 @@ Status CompilationEngine::eat(Keyword keywordType, bool isOptional) {
 		return Status::SYNTAX_ERROR;
 	}
 	else {
+		switch (keywordType) {
+		case Keyword::THIS: // only case I am aware of is "return this"
+			vm->writePush(Segment::POINTER, 0);
+			break;
+		case Keyword::K_NULL: // fall-through
+		case Keyword::FALSE:
+			vm->writePush(Segment::CONST, 0);
+			break;
+		case Keyword::TRUE:
+			vm->writePush(Segment::CONST, 1);
+			vm->writeArithmetic(Command::NEG);
+			break;
+		}
 		writeTkAndAdvance();
 		return Status::OK;
 	}
@@ -114,16 +140,17 @@ Status CompilationEngine::eatTypeWithVoid(bool isOptional) {
 	return eatType(true, isOptional);
 }
 
-Status CompilationEngine::eatOp(bool isOptional) {
+Status CompilationEngine::eatOp(bool isOptional, bool noAdvance) {
 	if (tk->aborted()) return Status::FAILURE;
-	auto opIt = tk->tokenType() == Token::SYMBOL ? ops.find(tk->symbol()) : ops.end();
-	if (opIt == ops.end()) {
+	auto opIt = opMap.find(tk->symbol());
+	if (opIt == opMap.end()) {
 		if (isOptional) return Status::NOT_FOUND;
 		cout << brightError << " at line " << tk->currPos() << ": Expected operator. Got " << tk->stringVal() << " instead." << endl;
 		return Status::SYNTAX_ERROR;
 	}
 	else {
-		writeTkAndAdvance();
+		if (!noAdvance)
+			writeTkAndAdvance();
 		return Status::OK;
 	}
 }
@@ -326,14 +353,13 @@ void CompilationEngine::compileStatements()
 
 void CompilationEngine::compileLet()
 {
-	// outFile << makeOpenTag(NonTerminal::LET);
 	eat(Keyword::LET);
 	auto classIt = classTable.getTable().find(tk->stringVal());
 	auto subIt = subroutineTable.getTable().find(tk->stringVal());
 	bool isSubVar = subIt != subroutineTable.getTable().end();
 	if (classIt == classTable.getTable().end() && !isSubVar) {
 		cout << brightError << " at line " << tk->currPos() << ": Attempting to assign value to undeclared variable \"" << tk->stringVal() << "\"" << endl;
-		return; // not sure if this will break things elsewhere but need to avoid future statements in this case
+		return;
 	}
 	compileIdentifier(false, false);
 	if (eat('[', true) == Status::OK) {
@@ -345,19 +371,40 @@ void CompilationEngine::compileLet()
 	// after returning from compileExpression, result of expression will be at the top of the stack
 	vm->writePop(kindToSegment((isSubVar ? subIt : classIt)->second.kind), (isSubVar ? subIt : classIt)->second.idx);
 	eat(';');
-	// outFile << makeCloseTag(NonTerminal::LET);
+}
+
+std::string random_string(std::size_t length)
+{
+	const std::string CHARACTERS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+	std::random_device random_device; // not the best seed but fine for our purposes
+	std::mt19937 generator(random_device());
+	std::uniform_int_distribution<> distribution(0, CHARACTERS.size() - 1);
+
+	std::string random_string;
+
+	for (std::size_t i = 0; i < length; ++i)
+	{
+		random_string += CHARACTERS[distribution(generator)];
+	}
+
+	return random_string;
 }
 
 void CompilationEngine::compileIf()
 {
-	// outFile << makeOpenTag(NonTerminal::IF);
+	string rand = random_string(20);
 	eat(Keyword::IF);
 	eat('(');
 	compileExpression();
 	eat(')');
+	// true or false value will be on the stack
+	vm->writeArithmetic(Command::NOT);
+	vm->writeIf(rand);
 	eat('{');
 	compileStatements();
 	eat('}');
+	vm->writeLabel(rand);
 	if (eat(Keyword::ELSE, true) == Status::OK) {
 		eat('{');
 		compileStatements();
@@ -381,17 +428,18 @@ void CompilationEngine::compileWhile()
 
 void CompilationEngine::compileDo()
 {
-	// outFile << makeOpenTag(NonTerminal::DO);
 	eat(Keyword::DO);
-	compileIdentifier(false, true);
+	string subroutineName = tk->stringVal();
+	tk->advance();
 	if (eat('.', true) == Status::OK) {
-		compileIdentifier(false, true);
+		subroutineName += "." + tk->stringVal();
+		tk->advance();
 	}
 	eat('(');
-	compileExpressionList();
+	int args = compileExpressionList();
 	eat(')');
+	compileIdentifier(false, true, subroutineName, args);
 	eat(';');
-	// outFile << makeCloseTag(NonTerminal::DO);
 }
 
 void CompilationEngine::compileReturn()
@@ -399,48 +447,48 @@ void CompilationEngine::compileReturn()
 	// outFile << makeOpenTag(NonTerminal::RETURN);
 	eat(Keyword::RETURN);
 	if (eat(';', true) == Status::OK) {
-		// outFile << makeCloseTag(NonTerminal::RETURN);
+		vm->writeReturn();
 		return;
 	}
 	compileExpression();
 	eat(';');
-	// outFile << makeCloseTag(NonTerminal::RETURN);
+	vm->writeReturn();
 }
 
 void CompilationEngine::compileExpression()
 {
-	// outFile << makeOpenTag(NonTerminal::EXPRESSION);
-	compileTerm();
-	while (eatOp(true) == Status::OK) {
-		compileTerm();
+	compileTerm(); // push onto stack
+	while (eatOp(true, true) == Status::OK) {
+		Command op = opMap.find(tk->symbol())->second;
+		tk->advance();
+		compileTerm(); // push onto stack
+		vm->writeArithmetic(op);
 	}
-	// outFile << makeCloseTag(NonTerminal::EXPRESSION);
 }
 
-bool isKeywordConst(Keyword key) {
+static bool isKeywordConst(Keyword key) {
 	return (key == Keyword::TRUE || key == Keyword::FALSE || key == Keyword::K_NULL || key == Keyword::THIS);
 }
 
 void CompilationEngine::compileTerm()
 {
-	// outFile << makeOpenTag(NonTerminal::TERM);
 	if (tk->tokenType() == Token::IDENTIFIER) {
 		compileTermIdentifier();
 	}
-	else if (eat(Token::INT_CONST, true) == Status::OK) {}
+	else if (eat(Token::INT_CONST, true) == Status::OK) {} // done
 	else if (eat(Token::STRING_CONST, true) == Status::OK) {}
 	else if (tk->tokenType() == Token::KEYWORD && isKeywordConst(tk->keyword())) {
 		eat(Token::KEYWORD);
 	}
-	else if (eat('(', true) == Status::OK) {
+	else if (eat('(', true) == Status::OK) { // done
 		compileExpression();
 		eat(')');
 	}
-	else if (eat('-', true) == Status::OK) {
+	else if (eat('-', true) == Status::OK) { // done
 		compileTerm();
 		vm->writeArithmetic(Command::NEG);
 	}
-	else if (eat('~', true) == Status::OK) {
+	else if (eat('~', true) == Status::OK) { // done
 		compileTerm();
 		vm->writeArithmetic(Command::NOT);
 	}
@@ -448,70 +496,55 @@ void CompilationEngine::compileTerm()
 	// outFile << makeCloseTag(NonTerminal::TERM);
 }
 
-void CompilationEngine::compileExpressionList()
+int CompilationEngine::compileExpressionList()
 {
-	// outFile << makeOpenTag(NonTerminal::EXPRESSION_LIST);
+	int argCount = 0;
 	if (tk->tokenType() == Token::SYMBOL && tk->symbol() == ')') {
-		// outFile << makeCloseTag(NonTerminal::EXPRESSION_LIST);
-		return;
+		return argCount;
 	}
 	compileExpression();
+	++argCount;
 	while (eat(',', true) == Status::OK) {
 		compileExpression();
+		++argCount;
 	}
-	// outFile << makeCloseTag(NonTerminal::EXPRESSION_LIST);
+	return argCount;
 }
 
+/*
 void CompilationEngine::compileIdentifier(bool beingDefined, bool isSubroutine) {
 	compileIdentifier(beingDefined, isSubroutine, std::nullopt);
 }
+*/
 
-void CompilationEngine::compileIdentifier(bool beingDefined, bool isSubroutine, std::optional<std::reference_wrapper<string>> savedToken)
+void CompilationEngine::compileIdentifier(bool beingDefined, bool isSubroutine, const string& savedToken, int argCount)
 {
-	// cout << "In compileIdentifier" << endl;
-	if (!savedToken) {
-		// outFile << makeOpenTag(NonTerminal::IDENTIFIER);
-		// tk->writeCurrToken(outFile);
-	}
-	string token = savedToken ? savedToken->get() : tk->stringVal();
+	string token = (savedToken.length() > 0) ? savedToken : tk->stringVal();
 
-	// cout << "Calling defined tag" << endl;
-	// outFile << makeOpenTag(NonTerminal::IDENTIFIER_BEING_DEFINED);
-	// outFile << beingDefined;
-	// outFile << makeCloseTag(NonTerminal::IDENTIFIER_BEING_DEFINED);
-
-	// cout << "Calling category tag" << endl;
-	// outFile << makeOpenTag(NonTerminal::IDENTIFIER_CAT);
-
-	if (isSubroutine) {
-		// outFile << "subroutine";
-		// outFile << makeCloseTag(NonTerminal::IDENTIFIER_CAT);
-		// outFile << makeCloseTag(NonTerminal::IDENTIFIER);
-		if (!savedToken) tk->advance();
+	if (isSubroutine && !beingDefined) {
+		// cout << "Writing call with token " << token << endl;
+		vm->writeCall(token, argCount);
+		if (savedToken.length() == 0) tk->advance();
 		return;
 	}
 
-	// cout << "Not subroutine. Checking for variables." << endl;
 	auto localVar = subroutineTable.getTable().find(token);
 	auto classVar = classTable.getTable().find(token);
-	if (localVar != subroutineTable.getTable().end() || classVar != classTable.getTable().end()) {
-		// outFile << kinds[static_cast<int>(localVar != subroutineTable.getTable().end() ? localVar->second.kind : classVar->second.kind)];
-		// outFile << makeCloseTag(NonTerminal::IDENTIFIER_CAT);
-		// outFile << makeOpenTag(NonTerminal::IDENTIFIER_IDX);
-		// outFile << (localVar != subroutineTable.getTable().end() ? localVar->second.idx : classVar->second.idx);
-		// outFile << makeCloseTag(NonTerminal::IDENTIFIER_IDX);
-	}
+	bool isLocal = localVar != subroutineTable.getTable().end();
+	if (isLocal || classVar != classTable.getTable().end()) {
+		if (beingDefined) {
+			vm->writePop(kindToSegment((isLocal ? localVar : classVar)->second.kind), (isLocal ? localVar : classVar)->second.idx);
+		}
+		else vm->writePush(kindToSegment((isLocal ? localVar : classVar)->second.kind), (isLocal ? localVar : classVar)->second.idx);
+	}	
 	else { // is class
 		// cout << "Is class" << endl;
 		// outFile << "class";
-		// outFile << makeCloseTag(NonTerminal::IDENTIFIER_CAT);
 	}
-	// outFile << makeCloseTag(NonTerminal::IDENTIFIER);
-	if (!savedToken) tk->advance();
+	if (savedToken.length() == 0) tk->advance();
 }
 
 void CompilationEngine::compileTermIdentifier() {
-	//outFile << makeOpenTag(NonTerminal::IDENTIFIER);
 	// tk->writeCurrToken(outFile);
 	string token = tk->stringVal();
 	tk->advance();
@@ -522,18 +555,20 @@ void CompilationEngine::compileTermIdentifier() {
 		eat(']');
 	}
 	else if (tk->tokenType() == Token::SYMBOL && tk->symbol() == '(') {
-		compileIdentifier(false, true, token);
 		eat('(');
-		compileExpressionList();
+		int args = compileExpressionList(); // this will push needed arguments for subroutine call onto the stack and return count
 		eat(')');
+		compileIdentifier(false, true, token, args);
 	}
 	else if (tk->tokenType() == Token::SYMBOL && tk->symbol() == '.') {
-		compileIdentifier(false, false, token);
+		cout << "Class method call in termidentifier" << endl;
 		eat('.');
-		compileIdentifier(false, true);
+		token = token + "." + tk->stringVal();
+		eat(Token::IDENTIFIER);
 		eat('(');
-		compileExpressionList();
+		int args = compileExpressionList();
 		eat(')');
+		compileIdentifier(false, false, token, args);	// needs to be able to handle Foo.bar() call	
 	}
 	else {
 		compileIdentifier(false, false, token); // regular variable

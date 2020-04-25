@@ -12,4 +12,4 @@ enum class NonTerminal {
 // For VM code
 enum class Kind { STATIC, FIELD, ARG, VAR };
 enum class Segment { CONST, ARG, LOCAL, STATIC, THIS, THAT, POINTER, TEMP, NONE };
-enum class Command { ADD, SUB, NEG, EQ, GT, LT, AND, OR, NOT };
+enum class Command { ADD, SUB, NEG, EQ, GT, LT, AND, OR, NOT, MULT, DIV, NONE };
