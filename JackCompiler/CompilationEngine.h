@@ -5,7 +5,11 @@
 #include <string>
 #include <fstream>
 #include <set>
-#include <optional>
+#include <map>
+#include <tuple>
+
+// enum class ItReturnType { LOCAL = 0, CLASS, NONE };
+typedef std::tuple<std::map<std::string, STEntry>::iterator, bool> ItWithResult;
 
 class CompilationEngine
 {
@@ -15,14 +19,14 @@ public:
 	void compileClassVarDec();
 	void compileSubroutineDec();
 	void compileParameterList(bool isMethod = false); // does not handle enclosing parens
-	void compileSubroutineBody(std::string& funName);
+	void compileSubroutineBody(std::string& funName, std::string& type);
 	void compileVarDec();
-	void compileStatements(); // does not handle enclosing braces
+	void compileStatements(std::string& type); // does not handle enclosing braces
 	void compileLet();
 	void compileIf();
 	void compileWhile();
 	void compileDo();
-	void compileReturn();
+	void compileReturn(std::string& type);
 	void compileExpression();
 	void compileTerm(); // need extra lookahead to check for [, ( or .
 	int compileExpressionList();
@@ -36,6 +40,9 @@ private:
 	VMWriter* vm;
 	void writeTkAndAdvance();
 	void checkVarDec(bool isClass);
+	ItWithResult getVarIt(const std::string& name);
+	bool prepareMethod(std::string& token);
+	bool isDefined(std::string var);
 	// std::string makeOpenTag(NonTerminal, bool isList = false);
 	// std::string makeCloseTag(NonTerminal, bool isList = false);
 	Status eat(Keyword keywordType, bool isOptional = false);

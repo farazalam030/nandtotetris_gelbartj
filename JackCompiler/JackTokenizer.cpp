@@ -293,7 +293,7 @@ char JackTokenizer::symbol()
 	return currToken.at(0);
 }
 
-std::string JackTokenizer::identifier()
+std::string& JackTokenizer::identifier()
 {
 	return currToken;
 }

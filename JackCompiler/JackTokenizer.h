@@ -17,7 +17,7 @@ public:
 	Token tokenType();
 	Keyword keyword(); // call only if tokenType == KEYWORD
 	char symbol(); // call only if tokenType == SYMBOL
-	std::string identifier(); // if tokenType == IDENTIFIER. output <, >, " and & as &lt;, &gt;, &quote; and &amp;
+	std::string& identifier(); // if tokenType == IDENTIFIER. output <, >, " and & as &lt;, &gt;, &quote; and &amp;
 	int intVal(); // if tokenType == INT_CONST
 	std::string& stringVal(); // if tokenType == STRING_CONST. Do not include double-quotes
 	void writeCurrToken(std::ofstream& destination, bool jsonMode=false);
