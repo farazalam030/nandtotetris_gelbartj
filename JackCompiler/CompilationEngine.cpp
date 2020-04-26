@@ -257,10 +257,6 @@ void CompilationEngine::compileSubroutineDec()
 	string funName = tk->identifier();
 	eat(Token::IDENTIFIER);
 
-	if (key == Keyword::METHOD) {
-		methodList.insert(funName);
-	}
-
 	eat('(');
 	compileParameterList(key == Keyword::METHOD);
 	eat(')');
@@ -299,8 +295,8 @@ void CompilationEngine::compileSubroutineBody(string& funName, string& type, Key
 	}
 	vm->writeFunction(className + "." + funName, subroutineTable.getKindCount(Kind::VAR));
 	if (key == Keyword::CONSTRUCTOR) {
-		vm->writePush(Segment::CONST, static_cast<int>(classTable.getTable().size()));
-		vm->writeCall("Memory.alloc", 1); // 1 argument, which is the number of class variables
+		vm->writePush(Segment::CONST, static_cast<int>(classTable.getKindCount(Kind::FIELD))); // don't include static vars
+		vm->writeCall("Memory.alloc", 1);
 		vm->writePop(Segment::POINTER, 0);
 	}
 	else if (key == Keyword::METHOD) {

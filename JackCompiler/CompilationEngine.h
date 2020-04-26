@@ -52,6 +52,5 @@ private:
 	Status eatOp(bool isOptional = false, bool noAdvance = false);
 	SymbolTable classTable;
 	SymbolTable subroutineTable;
-	std::set<std::string> methodList;
 };
 
