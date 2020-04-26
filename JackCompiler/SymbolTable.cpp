@@ -3,7 +3,7 @@
 
 using namespace std;
 
-static const char* kinds[] = { "STATIC", "FIELD", "ARG", "VAR" };
+// static const char* kinds[] = { "STATIC", "FIELD", "ARG", "VAR" };
 
 SymbolTable::SymbolTable()
 {
@@ -19,7 +19,6 @@ void SymbolTable::reset()
 	table.clear();
 	for (auto& kindEntry : kindCount) {
 		kindEntry.second = 0;
-		// cout << "Kind entry " << kinds[(int)kindEntry.first] << " is now " << kindCount.at(kindEntry.first) << endl;
 	}
 }
 
@@ -28,10 +27,7 @@ void SymbolTable::define(const std::string& name, const std::string& type, const
 	STEntry entry;
 	entry.type = type;
 	entry.kind = kind;
-	// cout << "getKindCount for kind " << kinds[(int)kind] << " is " << getKindCount(kind) << endl;
 	entry.idx = getKindCount(kind)++;
-	// cout << "getKindCount of this kind is now " << getKindCount(kind) << endl;
-	cout << "Defined new variable with name " << name << ", kind " << kinds[(int)kind] << ", type " << type << ", and idx " << entry.idx << endl;
 	table.emplace(name, entry);
 }
 
