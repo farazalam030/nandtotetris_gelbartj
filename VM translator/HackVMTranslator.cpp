@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
                 codeWriter.writeComment(parser.getCurrLine());
                 continue;
             }
-            string arg1 = parser.arg1();
+            string arg1 = std::move(parser.arg1());
 
             switch (parser.currCommandType) {
                 case Command::C_ARITHMETIC:

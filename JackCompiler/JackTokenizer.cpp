@@ -7,7 +7,7 @@
 
 using namespace std;
 
-const map<string, Keyword> JackTokenizer::keywordList = {
+static const map<string, Keyword> keywordList = {
 	{"class", Keyword::CLASS},
 	{"method", Keyword::METHOD},
 	{"function", Keyword::FUNCTION},
@@ -31,7 +31,7 @@ const map<string, Keyword> JackTokenizer::keywordList = {
 	{"this", Keyword::THIS }
 };
 
-const set<char> JackTokenizer::symbols = {
+static const set<char> symbols = {
 	'{', '}', '(', ')', '[', ']', '.', ',', ';', '+', '-', '*', '/', '&', '|', '<', '>', '=', '~'
 };
 
@@ -39,32 +39,11 @@ static const char * tokens[] = { "keyword", "symbol", "name", "integerConstant",
 
 static const char* brightError = "\x1B[91mERROR\033[0m";
 
-JackTokenizer::JackTokenizer(const std::string& inputFilename, const std::string& outputFilename)
-{
-	inFile.open(inputFilename);
-	if (inFile.is_open()) {
-		cout << "Opened file " << inputFilename << " for tokenizing." << endl;
-		stripAllComments();
-		outFile.open(outputFilename);
-		if (outFile.is_open()) {
-			cout << "Opened file " << outputFilename << " for XML output." << endl;
-			outFile << "<tokens>" << endl;
-		}
-		else {
-			cout << "Error opening file " << outputFilename << " for output." << endl;
-		}
-	}
-	else {
-		cout << "Error opening file" << inputFilename << " for input." << endl;
-		failedOpen = true;
-	}
-}
-
 JackTokenizer::JackTokenizer(const std::string& inputFilename)
 {
 	inFile.open(inputFilename);
 	if (inFile.is_open()) {
-		cout << "Opened file " << inputFilename << " for tokenizing." << endl;
+		cout << "Successfully opened " << inputFilename << "." << endl;
 		stripAllComments();
 	}
 	else {
@@ -149,9 +128,8 @@ bool JackTokenizer::hasMoreTokens()
 	return strippedText.good();
 }
 
-int JackTokenizer::currPos() {
+int JackTokenizer::currLineNum() {
 	for (auto it = lineNums.begin(); it != lineNums.end(); it++) {
-		// cout << it->first << ": tellg is " << strippedText.tellg() << " and stored lineNum val is " << it->second << endl;
 		if (strippedText.tellg() <= it->second) {
 			return (--it)->first;
 		}
@@ -207,7 +185,7 @@ void JackTokenizer::advance()
 		tempWord.erase(0, 1); // remove opening quote
 		size_t closeQuotePos = tempWord.find_first_of("\""); // ok to find first of since opening quote has been removed
 
-		while (closeQuotePos == string::npos) { // Continue until finding close quote. 
+		while (closeQuotePos == string::npos) { 
 			if (!hasMoreTokens()) {
 				cout << brightError << " in string literal, reached end of file without finding close quote ('\"'). Aborting." << endl;
 				abortFlag = true;
@@ -220,7 +198,7 @@ void JackTokenizer::advance()
 		currTokenType = Token::STRING_CONST;
 		if (closeQuotePos != tempWord.length() - 1) {
 			currWord = tempWord.substr(closeQuotePos + 1);
-			tempWord.erase(closeQuotePos); // exclude close quote
+			tempWord.erase(closeQuotePos);
 			currToken = tempWord;
 			return;
 		}
@@ -236,36 +214,9 @@ void JackTokenizer::advance()
 		currWord.erase(0, symbolSplit);
 	}
 	else advanceWord();
-	// check for keyword
 	auto keywordIt = keywordList.find(currToken);
 	if (keywordIt != keywordList.end()) {
 		currTokenType = Token::KEYWORD;
-	}
-}
-
-void JackTokenizer::writeCurrToken(ofstream& destination, bool jsonMode) {
-	if (jsonMode) {
-		destination << "\"" << tokens[static_cast<int>(currTokenType)] << "\":";
-		if (tokenType() != Token::INT_CONST) destination << "\"" << currToken << "\"";
-		else destination << currToken;
-		destination << "," << endl;
-		return;
-	}
-	string tokenToWrite = currToken;
-	if (tokenToWrite == "<") {
-		tokenToWrite = "&lt;";
-	}
-	else if (tokenToWrite == ">") {
-		tokenToWrite = "&gt;";
-	}
-	else if (tokenToWrite == "\"") {
-		tokenToWrite = "&quot;";
-	}
-	else if (tokenToWrite == "&") {
-		tokenToWrite = "&amp;";
-	}
-	if (currTokenType != Token::NONE) {
-		destination << "<" << tokens[static_cast<int>(currTokenType)] << ">" << tokenToWrite << "</" << tokens[static_cast<int>(currTokenType)] << ">" << endl;
 	}
 }
 
@@ -311,7 +262,6 @@ std::string& JackTokenizer::stringVal()
 void JackTokenizer::close()
 {
 	if (inFile.is_open()) {
-		outFile << "</tokens>" << endl;
 		inFile.close();
 		cout << "==============" << endl;
 	}

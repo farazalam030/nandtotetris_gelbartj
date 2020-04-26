@@ -83,7 +83,7 @@ void Parser::advance()
 
 Command Parser::commandType()
 {
-	string commandString = currLine.substr(0, currLine.find_first_of(" "));
+	const string commandString = currLine.substr(0, currLine.find_first_of(" "));
 	if (arithCommands.find(commandString) != arithCommands.end()) {
 		return Command::C_ARITHMETIC;
 	}
@@ -114,11 +114,11 @@ bool is_number(const std::string& s) {
 	return !s.empty() && std::all_of(s.begin(), s.end(), ::isdigit);
 }
 
-int Parser::arg2()
+const int Parser::arg2()
 {
 	if (currCommandType == Command::C_PUSH || currCommandType == Command::C_POP || currCommandType == Command::C_FUNCTION || currCommandType == Command::C_CALL) {
 		string arg2String = currLine.substr(currLine.find_last_of(" ") + 1);
-		if (is_number(arg2String))
+		if (is_number(arg2String)) // it's either this or use a try/catch block
 			return stoi(arg2String);	
 	}
 	return NAN;

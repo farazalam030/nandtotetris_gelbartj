@@ -12,10 +12,10 @@ VMWriter::VMWriter(const std::string& outputFilename)
 {
 	outFile.open(outputFilename);
 	if (outFile.is_open()) {
-		cout << "Opened file " << outputFilename << " for detailed XML output." << endl;
+		cout << "Opened file " << outputFilename << " for compiler output." << endl;
 	}
 	else {
-		cout << brightError << " opening file " << outputFilename << " for detailed output." << endl;
+		cout << brightError << " opening file " << outputFilename << " for compiler output." << endl;
 		failedOpen = true;
 	}
 }

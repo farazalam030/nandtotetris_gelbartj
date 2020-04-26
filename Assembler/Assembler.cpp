@@ -8,7 +8,7 @@
 
 using namespace std;
 
-Assembler::Assembler(string &filename): filename(filename) {
+Assembler::Assembler(const string &filename): filename(filename) {
 	cout << "Trying to open filename " << this->filename << endl;
 	assemblyFile.open(filename);
 
@@ -50,8 +50,7 @@ void Assembler::getLoopAddresses() {
 void Assembler::convertCommands() {
 	codeNoCommentsLabels.seekg(0);
 
-	string newFilename = filename.substr(0, filename.length() - 4); // cut off 3-character extension
-	newFilename += ".hack";
+	string newFilename = filename.substr(0, filename.length() - 3) + "hack";
 	cout << "Printing to filename " << newFilename << endl;
 
 	string line;
@@ -97,8 +96,7 @@ bool is_number(const std::string& s) {
 }
 
 void Assembler::convertACommand(string& command) {
-	// Can assume passed a command starting with "@"
-	command.erase(0,1);
+	command.erase(0,1); // erase starting "@"
 
 	if (is_number(command)) {
 		int binary = stoi(command);
@@ -130,13 +128,11 @@ void Assembler::convertCCommand(string_view command) {
 		compBits = compMap.at(command.substr(0, jumpStart));
 	}
 
-	binaryFile << "111" + compBits + destBits + jumpBits << endl;
+	binaryFile << "111" << compBits << destBits << jumpBits << endl;
 }
 
 Assembler::~Assembler() {
 	// File stream destructor will close automatically
-	// if (assemblyFile.is_open())
-	//	assemblyFile.close();
 }
 
 const std::map <std::string_view, std::string> Assembler::jumpMap = {

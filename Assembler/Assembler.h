@@ -4,17 +4,18 @@
 #include <map>
 #include <fstream>
 #include <sstream>
+constexpr int FIRST_FREE_MEM = 16;
 
 class Assembler
 {
 public:
-	Assembler(std::string& filename);
+	Assembler(const std::string& filename);
 
 	void getLoopAddresses();
-	void removeComments(std::string&);
+	void removeComments(std::string& line);
 	void convertCommands();
-	std::string convertACommand(std::string& command);
-	std::string convertCCommand(std::string_view command);
+	void convertACommand(std::string& command);
+	void convertCCommand(std::string_view command);
 
 	~Assembler();
 
@@ -24,7 +25,7 @@ private:
 	std::ofstream binaryFile;
 	std::ifstream assemblyFile;
 
-	int latestFreeMem = 16;
+	int latestFreeMem = FIRST_FREE_MEM;
 
 	std::map <std::string, int> symbolTable = {
 		{ "SP", 0 },

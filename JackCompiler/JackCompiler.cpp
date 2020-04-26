@@ -47,17 +47,13 @@ int main(int argc, char* argv[])
         files.push_back(fileOrDir);
     }
 
-    // string fileWithDir;
-
     for (auto& file : files) {
-        cout << "Loading " << file << endl;
+        cout << "Loading " << file << "..." << endl;
 
-        string vmOutput = file.substr(0, file.find_last_of(".")) + ".vm";
-        JackTokenizer tokenizer(file); //  , tokenOutput);
-        JackTokenizer* tokenPointer = &tokenizer;
+        string vmOutput = file.substr(0, file.find_last_of(".") + 1) + "vm";
+        JackTokenizer tokenizer(file);
         VMWriter vm(vmOutput);
-        VMWriter* vmPointer = &vm;
-        CompilationEngine ce(tokenPointer, vmPointer);
+        CompilationEngine ce(tokenizer, vm);
 
         if (vm.didFailOpen()) {
             return -1;
@@ -65,16 +61,6 @@ int main(int argc, char* argv[])
 
         vm.close();
         cout << "===========" << endl;
-
-        /*
-        while (tokenizer.hasMoreTokens()) {
-            // cout << "Calling advance from JackAnalyzer" << endl;
-            tokenizer.advance();
-            // cout << "Calling writeCurrToken from JackAnalyzer" << endl;
-            tokenizer.writeCurrToken(tokenizer.getOutputFile());
-        }
-        tokenizer.close();
-        */
     }
     auto stop = chrono::high_resolution_clock::now();
     auto duration = chrono::duration_cast<chrono::milliseconds>(stop - start);

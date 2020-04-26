@@ -12,7 +12,7 @@ static const char* tokens[] = { "keyword", "symbol", "identifier token", "int co
 
 static const char* brightError = "\x1B[91mERROR\033[0m";
 
-const map<Keyword, string> reverseKeywordList = {
+static const map<Keyword, const string> reverseKeywordList = {
 	{Keyword::CLASS, "class"},
 	{Keyword::METHOD, "method"},
 	{Keyword::FUNCTION, "function"},
@@ -36,8 +36,7 @@ const map<Keyword, string> reverseKeywordList = {
 	{Keyword::THIS, "this" }
 };
 
-// const set<char> ops = { '+', '-', '*', '/', '&', '|', '<', '>', '=' };
-const map<char, Command> opMap = {
+static const map<char, const Command> opMap = {
 	{ '+', Command::ADD },
 	{ '-', Command::SUB },
 	{ '*', Command::MULT },
@@ -49,10 +48,10 @@ const map<char, Command> opMap = {
 	{ '=', Command::EQ }
 };
 
-CompilationEngine::CompilationEngine(JackTokenizer* tkA, VMWriter* vmA) : tk(tkA), vm(vmA)
+CompilationEngine::CompilationEngine(JackTokenizer& tkA, VMWriter& vmA) : tk(tkA), vm(vmA)
 {
-	tk->advance();
-	if (tk->tokenType() == Token::KEYWORD && tk->keyword() == Keyword::CLASS)
+	tk.advance();
+	if (tk.tokenType() == Token::KEYWORD && tk.keyword() == Keyword::CLASS)
 		compileClass();
 	else {
 		cout << brightError << ": File does not begin with class declaration." << endl;
@@ -60,85 +59,85 @@ CompilationEngine::CompilationEngine(JackTokenizer* tkA, VMWriter* vmA) : tk(tkA
 }
 
 Status CompilationEngine::eat(Token tokenType, bool isOptional) {
-	if (tk->aborted()) return Status::FAILURE;
-	if (tk->tokenType() != tokenType) {
+	if (tk.aborted()) return Status::FAILURE;
+	if (tk.tokenType() != tokenType) {
 		if (isOptional) return Status::NOT_FOUND;
-		cout << brightError << " at line " << tk->currPos() << ": Expected " << tokens[static_cast<int>(tokenType)] << " and got " << tk->identifier() << " instead." << endl;
+		cout << brightError << " at line " << tk.currLineNum() << ": Expected " << tokens[static_cast<int>(tokenType)] << " and got " << tk.identifier() << " instead." << endl;
 		return Status::SYNTAX_ERROR;
 	}
 	else {
-		if (tk->tokenType() == Token::INT_CONST)
-			vm->writePush(Segment::CONST, tk->intVal());
-		else if (tk->tokenType() == Token::STRING_CONST) {
-			string stringConst = tk->stringVal();
+		if (tk.tokenType() == Token::INT_CONST)
+			vm.writePush(Segment::CONST, tk.intVal());
+		else if (tk.tokenType() == Token::STRING_CONST) {
+			string stringConst = tk.stringVal();
 			size_t length = stringConst.length();
-			vm->writePush(Segment::CONST, length);
-			vm->writeCall("String.new", 1);
+			vm.writePush(Segment::CONST, length);
+			vm.writeCall("String.new", 1);
 			for (size_t i = 0; i < length; ++i) {
-				vm->writePush(Segment::CONST, stringConst.at(i));
-				vm->writeCall("String.appendChar", 2);
+				vm.writePush(Segment::CONST, stringConst.at(i));
+				vm.writeCall("String.appendChar", 2);
 			}
 		}
-		else if (tk->tokenType() == Token::KEYWORD) {
-			switch (tk->keyword()) {
+		else if (tk.tokenType() == Token::KEYWORD) {
+			switch (tk.keyword()) {
 			case Keyword::THIS: // only case I am aware of is "return this"
-				vm->writePush(Segment::POINTER, 0);
+				vm.writePush(Segment::POINTER, 0);
 				break;
 			case Keyword::K_NULL: // fall-through
 			case Keyword::FALSE:
-				vm->writePush(Segment::CONST, 0);
+				vm.writePush(Segment::CONST, 0);
 				break;
 			case Keyword::TRUE:
-				vm->writePush(Segment::CONST, 1);
-				vm->writeArithmetic(Command::NEG);
+				vm.writePush(Segment::CONST, 1);
+				vm.writeArithmetic(Command::NEG);
 				break;
 			}
 		}
-		writeTkAndAdvance();
+		advanceTk();
 		return Status::OK;
 	}
 }
 
 Status CompilationEngine::eat(char symbol, bool isOptional) {
-	if (tk->aborted()) return Status::FAILURE;
-	if (tk->symbol() != symbol) {
+	if (tk.aborted()) return Status::FAILURE;
+	if (tk.symbol() != symbol) {
 		if (isOptional) return Status::NOT_FOUND;
-		cout << brightError << " at line " << tk->currPos() << ": Expected '" << symbol << "' and got '" << tk->identifier() << "' instead." << endl;
+		cout << brightError << " at line " << tk.currLineNum() << ": Expected '" << symbol << "' and got '" << tk.identifier() << "' instead." << endl;
 		return Status::SYNTAX_ERROR;
 	}
 	else {
-		writeTkAndAdvance();
+		advanceTk();
 		return Status::OK;
 	}
 }
 
 Status CompilationEngine::eat(Keyword keywordType, bool isOptional) {
-	if (tk->aborted()) return Status::FAILURE;
-	if (tk->keyword() != keywordType) {
+	if (tk.aborted()) return Status::FAILURE;
+	if (tk.keyword() != keywordType) {
 		if (isOptional) return Status::NOT_FOUND;
-		cout << brightError << " at line " << tk->currPos() << ": Expected " << reverseKeywordList.at(keywordType) << endl;
+		cout << brightError << " at line " << tk.currLineNum() << ": Expected " << reverseKeywordList.at(keywordType) << endl;
 		return Status::SYNTAX_ERROR;
 	}
 	else {
-		writeTkAndAdvance();
+		advanceTk();
 		return Status::OK;
 	}
 }
 
 Status CompilationEngine::eatType(bool includeVoid, bool isOptional) {
-	if (tk->aborted()) return Status::FAILURE;
-	if ((tk->tokenType() == Token::KEYWORD &&
-		(tk->keyword() == Keyword::INT ||
-			tk->keyword() == Keyword::BOOLEAN ||
-			tk->keyword() == Keyword::CHAR ||
-			(includeVoid ? tk->keyword() == Keyword::VOID : false)))
-		|| tk->tokenType() == Token::IDENTIFIER) {
-		writeTkAndAdvance();
+	if (tk.aborted()) return Status::FAILURE;
+	if ((tk.tokenType() == Token::KEYWORD &&
+			(tk.keyword() == Keyword::INT ||
+			tk.keyword() == Keyword::BOOLEAN ||
+			tk.keyword() == Keyword::CHAR ||
+			(includeVoid ? tk.keyword() == Keyword::VOID : false)))
+		|| tk.tokenType() == Token::IDENTIFIER) {
+		advanceTk();
 		return Status::OK;
 	}
 	else {
 		if (isOptional) return Status::NOT_FOUND;
-		cout << brightError << " at line " << tk->currPos() << ": Expected type" << endl;
+		cout << brightError << " at line " << tk.currLineNum() << ": Expected type" << endl;
 		return Status::SYNTAX_ERROR;
 	}
 }
@@ -152,53 +151,50 @@ Status CompilationEngine::eatTypeWithVoid(bool isOptional) {
 }
 
 Status CompilationEngine::eatOp(bool isOptional, bool noAdvance) {
-	if (tk->aborted()) return Status::FAILURE;
-	auto opIt = opMap.find(tk->symbol());
+	if (tk.aborted()) return Status::FAILURE;
+	auto opIt = opMap.find(tk.symbol());
 	if (opIt == opMap.end()) {
 		if (isOptional) return Status::NOT_FOUND;
-		cout << brightError << " at line " << tk->currPos() << ": Expected operator. Got " << tk->identifier() << " instead." << endl;
+		cout << brightError << " at line " << tk.currLineNum() << ": Expected operator. Got " << tk.identifier() << " instead." << endl;
 		return Status::SYNTAX_ERROR;
 	}
 	else {
 		if (!noAdvance)
-			writeTkAndAdvance();
+			advanceTk();
 		return Status::OK;
 	}
 }
 
 
-void CompilationEngine::writeTkAndAdvance() {
-	if (!tk->aborted()) {
-		// tk->writeCurrToken(outFile, jsonMode);
-		tk->advance();
+void CompilationEngine::advanceTk() {
+	if (!tk.aborted()) {
+		tk.advance();
 	}
 }
 
 void CompilationEngine::compileClass()
 {
-	// outFile << makeOpenTag(NonTerminal::CLASS);
 	classTable.reset();
 	eat(Keyword::CLASS);
-	className = tk->identifier();
+	className = tk.identifier();
 	compileIdentifier(true, false);
 	eat('{');
-	if (tk->tokenType() == Token::KEYWORD) {
-		while (!tk->aborted() && (tk->keyword() == Keyword::STATIC || tk->keyword() == Keyword::FIELD)) {
+	if (tk.tokenType() == Token::KEYWORD) {
+		while (!tk.aborted() && (tk.keyword() == Keyword::STATIC || tk.keyword() == Keyword::FIELD)) {
 			compileClassVarDec();
 		}
-		while (!tk->aborted() && (tk->keyword() == Keyword::CONSTRUCTOR || tk->keyword() == Keyword::FUNCTION || tk->keyword() == Keyword::METHOD)) {
+		while (!tk.aborted() && (tk.keyword() == Keyword::CONSTRUCTOR || tk.keyword() == Keyword::FUNCTION || tk.keyword() == Keyword::METHOD)) {
 			compileSubroutineDec();
 		}
 	}
 	eat('}');
-	// outFile << makeCloseTag(NonTerminal::CLASS);
 }
 
 void CompilationEngine::checkVarDec(bool isClass) {
-	auto found = (isClass ? classTable : subroutineTable).getTable().find(tk->identifier());
+	auto found = (isClass ? classTable : subroutineTable).getTable().find(tk.identifier());
 	auto end = (isClass ? classTable : subroutineTable).getTable().end();
 	if (found != end) {
-		cout << brightError << " at line " << tk->currPos() << ": Attempting redefinition of already defined variable \"" << tk->identifier() << "\"" << endl;
+		cout << brightError << " at line " << tk.currLineNum() << ": Attempting redefinition of already defined variable \"" << tk.identifier() << "\"" << endl;
 	}
 }
 
@@ -232,16 +228,16 @@ Segment kindToSegment(Kind kind) {
 
 void CompilationEngine::compileClassVarDec()
 {
-	Kind kind = keyToKind(tk->keyword());
+	Kind kind = keyToKind(tk.keyword());
 	eat(Token::KEYWORD);
-	string type = tk->identifier();
+	string type = tk.identifier();
 	eatType();
 	checkVarDec(true);
-	classTable.define(tk->identifier(), type, kind);
+	classTable.define(tk.identifier(), type, kind);
 	eat(Token::IDENTIFIER);
 	while (eat(',', true) == Status::OK) {
 		checkVarDec(true);
-		classTable.define(tk->identifier(), type, kind);
+		classTable.define(tk.identifier(), type, kind);
 		eat(Token::IDENTIFIER);
 	}
 	eat(';');
@@ -250,11 +246,11 @@ void CompilationEngine::compileClassVarDec()
 void CompilationEngine::compileSubroutineDec()
 {
 	subroutineTable.reset();
-	Keyword key = tk->keyword();
+	Keyword key = tk.keyword();
 	eat(Token::KEYWORD);
-	string classNameOrType = tk->identifier();
+	string classNameOrType = tk.identifier();
 	eatTypeWithVoid();
-	string funName = tk->identifier();
+	string funName = tk.identifier();
 	eat(Token::IDENTIFIER);
 
 	eat('(');
@@ -266,20 +262,20 @@ void CompilationEngine::compileSubroutineDec()
 
 void CompilationEngine::compileParameterList(bool isMethod)
 {
-	string type = tk->identifier();
+	string type = tk.identifier();
 	int numArgs = 0;
 	if (isMethod) {
 		subroutineTable.define("this", className, Kind::ARG);
 		++numArgs;
 	}
 	if (eatType(true) == Status::OK) {
-		subroutineTable.define(tk->identifier(), type, Kind::ARG);
+		subroutineTable.define(tk.identifier(), type, Kind::ARG);
 		eat(Token::IDENTIFIER);
 		++numArgs;
 		while (eat(',', true) == Status::OK) {
-			type = tk->identifier();
+			type = tk.identifier();
 			eatType();
-			subroutineTable.define(tk->identifier(), type, Kind::ARG);
+			subroutineTable.define(tk.identifier(), type, Kind::ARG);
 			eat(Token::IDENTIFIER);
 			++numArgs;
 		}
@@ -290,36 +286,35 @@ void CompilationEngine::compileParameterList(bool isMethod)
 void CompilationEngine::compileSubroutineBody(string& funName, string& type, Keyword key)
 {
 	eat('{');
-	while (!tk->aborted() && tk->tokenType() == Token::KEYWORD && tk->keyword() == Keyword::VAR) {
+	while (!tk.aborted() && tk.tokenType() == Token::KEYWORD && tk.keyword() == Keyword::VAR) {
 		compileVarDec();
 	}
-	vm->writeFunction(className + "." + funName, subroutineTable.getKindCount(Kind::VAR));
+	vm.writeFunction(className + "." + funName, subroutineTable.getKindCount(Kind::VAR));
 	if (key == Keyword::CONSTRUCTOR) {
-		vm->writePush(Segment::CONST, static_cast<int>(classTable.getKindCount(Kind::FIELD))); // don't include static vars
-		vm->writeCall("Memory.alloc", 1);
-		vm->writePop(Segment::POINTER, 0);
+		vm.writePush(Segment::CONST, static_cast<int>(classTable.getKindCount(Kind::FIELD))); // don't include static vars
+		vm.writeCall("Memory.alloc", 1);
+		vm.writePop(Segment::POINTER, 0);
 	}
 	else if (key == Keyword::METHOD) {
-		vm->writePush(Segment::ARG, 0);
-		vm->writePop(Segment::POINTER, 0);
+		vm.writePush(Segment::ARG, 0);
+		vm.writePop(Segment::POINTER, 0);
 	}
 	compileStatements(type);
 	eat('}');
-	// return localCount;
 }
 
 void CompilationEngine::compileVarDec()
 {
 	eat(Keyword::VAR);
-	string type = tk->identifier();
+	string type = tk.identifier();
 	eatType();
 	checkVarDec(false);
-	subroutineTable.define(tk->identifier(), type, Kind::VAR);
+	subroutineTable.define(tk.identifier(), type, Kind::VAR);
 	
 	eat(Token::IDENTIFIER);
 	while (eat(',', true) == Status::OK) {
 		checkVarDec(false);
-		subroutineTable.define(tk->identifier(), type, Kind::VAR);
+		subroutineTable.define(tk.identifier(), type, Kind::VAR);
 		
 		eat(Token::IDENTIFIER);
 	}
@@ -329,8 +324,8 @@ void CompilationEngine::compileVarDec()
 void CompilationEngine::compileStatements(const string& type)
 {
 	bool endFlag = false;
-	while (!tk->aborted() && tk->tokenType() == Token::KEYWORD && !endFlag) {
-		switch (tk->keyword()) {
+	while (!tk.aborted() && tk.tokenType() == Token::KEYWORD && !endFlag) {
+		switch (tk.keyword()) {
 		case Keyword::LET:
 			compileLet();
 			break;
@@ -368,7 +363,7 @@ ItWithResult CompilationEngine::getVarIt(const string& name) {
 bool CompilationEngine::prepareMethod(string& token, bool sureMethod)
 {
 	if (sureMethod) {
-		vm->writePush(Segment::POINTER, 0);
+		vm.writePush(Segment::POINTER, 0);
 		token = className + "." + token;
 		return true;
 	}
@@ -376,11 +371,11 @@ bool CompilationEngine::prepareMethod(string& token, bool sureMethod)
 	bool itResult;
 	std::tie(it, itResult) = getVarIt(token);
 	if (!itResult) {
-		token = token + "." + tk->identifier();
+		token = token + "." + tk.identifier();
 	}
 	else {
-		token = (it->second.type) + "." + tk->identifier();
-		vm->writePush(kindToSegment(it->second.kind), it->second.idx);
+		token = (it->second.type) + "." + tk.identifier();
+		vm.writePush(kindToSegment(it->second.kind), it->second.idx);
 	}
 	return itResult;
 }
@@ -396,14 +391,14 @@ void CompilationEngine::compileLet()
 {
 	bool isArray = false;
 	eat(Keyword::LET);
-	string varName = tk->identifier();
+	string varName = tk.identifier();
 
 	std::map<string, const STEntry>::iterator it;
 	bool itResult;
 	std::tie(it, itResult) = getVarIt(varName);
 	
 	if (!itResult) {
-		cout << brightError << " at line " << tk->currPos() << ": Attempting to assign value to undeclared variable \"" << tk->identifier() << "\"" << endl;
+		cout << brightError << " at line " << tk.currLineNum() << ": Attempting to assign value to undeclared variable \"" << tk.identifier() << "\"" << endl;
 		return;
 	}
 	
@@ -411,22 +406,22 @@ void CompilationEngine::compileLet()
 
 	if (eat('[', true) == Status::OK) {
 		isArray = true;
-		vm->writePush(kindToSegment(it->second.kind), it->second.idx);
+		vm.writePush(kindToSegment(it->second.kind), it->second.idx);
 		compileExpression();
-		vm->writeArithmetic(Command::ADD);
+		vm.writeArithmetic(Command::ADD);
 		eat(']');
 	}
 	eat('=');
 	compileExpression();
 	// after returning from compileExpression, result of expression will be at the top of the stack
 	if (isArray) {
-		vm->writePop(Segment::TEMP, 0);
-		vm->writePop(Segment::POINTER, 1);
-		vm->writePush(Segment::TEMP, 0);
-		vm->writePop(Segment::THAT, 0);
+		vm.writePop(Segment::TEMP, 0);
+		vm.writePop(Segment::POINTER, 1);
+		vm.writePush(Segment::TEMP, 0);
+		vm.writePop(Segment::THAT, 0);
 	}
 	else {
-		vm->writePop(kindToSegment(it->second.kind), it->second.idx);
+		vm.writePop(kindToSegment(it->second.kind), it->second.idx);
 	}
 	eat(';');
 }
@@ -458,20 +453,19 @@ void CompilationEngine::compileIf()
 	compileExpression();
 	eat(')');
 	// true or false value will be on the stack
-	vm->writeArithmetic(Command::NOT);
-	vm->writeIf(elseBlock);
+	vm.writeArithmetic(Command::NOT);
+	vm.writeIf(elseBlock);
 	eat('{');
 	compileStatements();
 	eat('}');
-	vm->writeGoto(afterIf);
-	vm->writeLabel(elseBlock);
+	vm.writeGoto(afterIf);
+	vm.writeLabel(elseBlock);
 	if (eat(Keyword::ELSE, true) == Status::OK) {
 		eat('{');
 		compileStatements();
 		eat('}');
 	}
-	vm->writeLabel(afterIf);
-	// outFile << makeCloseTag(NonTerminal::IF);
+	vm.writeLabel(afterIf);
 }
 
 void CompilationEngine::compileWhile()
@@ -479,30 +473,30 @@ void CompilationEngine::compileWhile()
 	string whileBlock = random_string(20);
 	string afterWhile = random_string(20);
 	eat(Keyword::WHILE);
-	vm->writeLabel(whileBlock);
+	vm.writeLabel(whileBlock);
 	eat('(');
 	compileExpression();
 	eat(')');
-	vm->writeArithmetic(Command::NOT);
-	vm->writeIf(afterWhile);
+	vm.writeArithmetic(Command::NOT);
+	vm.writeIf(afterWhile);
 	eat('{');
 	compileStatements();
 	eat('}');
-	vm->writeGoto(whileBlock);
-	vm->writeLabel(afterWhile);
+	vm.writeGoto(whileBlock);
+	vm.writeLabel(afterWhile);
 }
 
 void CompilationEngine::compileDo()
 {
 	eat(Keyword::DO);
-	string subOrObjName = tk->identifier();
-	tk->advance();
+	string subOrObjName = tk.identifier();
+	tk.advance();
 	int numArgs = 0;
-	bool hasClassAccess = tk->tokenType() == Token::SYMBOL && tk->symbol() == '.';
+	bool hasClassAccess = tk.tokenType() == Token::SYMBOL && tk.symbol() == '.';
 	if (eat('.', true) == Status::OK) {
 		bool isMethod = prepareMethod(subOrObjName);
 		if (isMethod) ++numArgs;
-		tk->advance();
+		tk.advance();
 	}
 	else {
 		prepareMethod(subOrObjName, true);
@@ -513,7 +507,7 @@ void CompilationEngine::compileDo()
 	eat(')');
 	compileIdentifier(false, true, subOrObjName, numArgs);
 	eat(';');
-	vm->writePop(Segment::TEMP, 0); // A "do" call means the caller doesn't care about
+	vm.writePop(Segment::TEMP, 0); // A "do" call means the caller doesn't care about
 									// the return value. Pop into temp to throw it away
 }
 
@@ -522,24 +516,24 @@ void CompilationEngine::compileReturn(const string& type)
 	eat(Keyword::RETURN);
 	if (eat(';', true) == Status::OK) {
 		if (type == "void") {
-			vm->writePush(Segment::CONST, 0);
+			vm.writePush(Segment::CONST, 0);
 		}
-		vm->writeReturn();
+		vm.writeReturn();
 		return;
 	}
 	compileExpression();
 	eat(';');
-	vm->writeReturn();
+	vm.writeReturn();
 }
 
 void CompilationEngine::compileExpression()
 {
-	compileTerm(); // push onto stack
+	compileTerm();
 	while (eatOp(true, true) == Status::OK) {
-		Command op = opMap.find(tk->symbol())->second;
-		tk->advance();
-		compileTerm(); // push onto stack
-		vm->writeArithmetic(op);
+		Command op = opMap.find(tk.symbol())->second;
+		tk.advance();
+		compileTerm();
+		vm.writeArithmetic(op);
 	}
 }
 
@@ -549,12 +543,12 @@ static bool isKeywordConst(Keyword key) {
 
 void CompilationEngine::compileTerm()
 {
-	if (tk->tokenType() == Token::IDENTIFIER) {
+	if (tk.tokenType() == Token::IDENTIFIER) {
 		compileTermIdentifier();
 	}
 	else if (eat(Token::INT_CONST, true) == Status::OK) {}
 	else if (eat(Token::STRING_CONST, true) == Status::OK) {}
-	else if (tk->tokenType() == Token::KEYWORD && isKeywordConst(tk->keyword())) {
+	else if (tk.tokenType() == Token::KEYWORD && isKeywordConst(tk.keyword())) {
 		eat(Token::KEYWORD);
 	}
 	else if (eat('(', true) == Status::OK) {
@@ -563,18 +557,18 @@ void CompilationEngine::compileTerm()
 	}
 	else if (eat('-', true) == Status::OK) {
 		compileTerm();
-		vm->writeArithmetic(Command::NEG);
+		vm.writeArithmetic(Command::NEG);
 	}
 	else if (eat('~', true) == Status::OK) {
 		compileTerm();
-		vm->writeArithmetic(Command::NOT);
+		vm.writeArithmetic(Command::NOT);
 	}
 }
 
 int CompilationEngine::compileExpressionList()
 {
 	int argCount = 0;
-	if (tk->tokenType() == Token::SYMBOL && tk->symbol() == ')') {
+	if (tk.tokenType() == Token::SYMBOL && tk.symbol() == ')') {
 		return argCount;
 	}
 	compileExpression();
@@ -586,19 +580,13 @@ int CompilationEngine::compileExpressionList()
 	return argCount;
 }
 
-/*
-void CompilationEngine::compileIdentifier(bool beingDefined, bool isSubroutine) {
-	compileIdentifier(beingDefined, isSubroutine, std::nullopt);
-}
-*/
-
 void CompilationEngine::compileIdentifier(bool beingDefined, bool isSubroutine, const string& savedToken, int argCount)
 {
-	string token = (savedToken.length() > 0) ? savedToken : tk->identifier();
+	string token = (savedToken.length() > 0) ? savedToken : tk.identifier();
 
 	if (isSubroutine && !beingDefined) {
-		vm->writeCall(token, argCount);
-		if (savedToken.length() == 0) tk->advance();
+		vm.writeCall(token, argCount);
+		if (savedToken.length() == 0) tk.advance();
 		return;
 	}
 
@@ -607,30 +595,29 @@ void CompilationEngine::compileIdentifier(bool beingDefined, bool isSubroutine, 
 	std::tie(it, itResult) = getVarIt(token);
 
 	if (itResult && !beingDefined) {
-		vm->writePush(kindToSegment(it->second.kind), it->second.idx);
+		vm.writePush(kindToSegment(it->second.kind), it->second.idx);
 	}	
 	else { 
 		// is class
 	}
-	if (savedToken.length() == 0) tk->advance();
+	if (savedToken.length() == 0) tk.advance();
 }
 
 void CompilationEngine::compileTermIdentifier() {
-	// tk->writeCurrToken(outFile);
-	string token = tk->identifier();
-	tk->advance();
+	string token = tk.identifier();
+	tk.advance();
 	int args = 0;
 	bool usedSymbolFlag = false;
-	if (tk->tokenType() == Token::SYMBOL) {
-		switch (tk->symbol()) {
+	if (tk.tokenType() == Token::SYMBOL) {
+		switch (tk.symbol()) {
 		case '[':
 			compileIdentifier(false, false, token); // pushes base address onto stack
 			eat('[');
 			compileExpression();
 			eat(']');
-			vm->writeArithmetic(Command::ADD);
-			vm->writePop(Segment::POINTER, 1);
-			vm->writePush(Segment::THAT, 0);
+			vm.writeArithmetic(Command::ADD);
+			vm.writePop(Segment::POINTER, 1);
+			vm.writePush(Segment::THAT, 0);
 			usedSymbolFlag = true;
 			break;
 
@@ -650,13 +637,13 @@ void CompilationEngine::compileTermIdentifier() {
 			eat('(');
 			args = compileExpressionList() + (isMethod ? 1 : 0); 
 			eat(')');
-			compileIdentifier(false, true, token, args);	// needs to be able to handle Foo.bar() call	
+			compileIdentifier(false, true, token, args);	
 			usedSymbolFlag = true;
 			break;
 		}
 	}
 	if (!usedSymbolFlag) {
-		compileIdentifier(false, false, token); // regular variable
+		compileIdentifier(false, false, token);
 	}
 }
 

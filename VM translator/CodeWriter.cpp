@@ -11,9 +11,19 @@ using namespace std;
 const set<string> CodeWriter::arithCommands = { "add", "sub", "neg", "eq", "gt", "lt", "and", "or", "not" };
 
 const map<string, string> CodeWriter::segmentMap = { { "local", "LCL" }, { "this", "THIS" }, { "that", "THAT"}, { "argument", "ARG" } };
-// other segments are constant, static, pointer, temp
 
-CodeWriter::CodeWriter(std::string& filename): outputFilename(filename)
+const map<string, Segment> CodeWriter::segmentEnumMap = {
+	{ "local", Segment::LOCAL },
+	{ "this", Segment::THIS },
+	{ "that", Segment::THAT },
+	{ "argument", Segment::ARG },
+	{ "constant", Segment::CONST },
+	{ "static", Segment::STATIC },
+	{ "pointer", Segment::POINTER },
+	{ "temp", Segment::TEMP }
+};
+
+CodeWriter::CodeWriter(const std::string& filename): outputFilename(filename)
 {
 	outputFile.open(outputFilename);
 	if (outputFile.is_open()) {
@@ -24,7 +34,7 @@ CodeWriter::CodeWriter(std::string& filename): outputFilename(filename)
 	}
 }
 
-void CodeWriter::writeArithmetic(std::string& command)
+void CodeWriter::writeArithmetic(const std::string& command)
 {
 	string output = ("// " + command + "\n");
 	// Get first value from stack
@@ -96,21 +106,21 @@ void CodeWriter::writeArithmetic(std::string& command)
 	outputFile << output;
 }
 
-string CodeWriter::getSegmentReference(string& segment, int index) {
-	if (segment == "constant") {
+string CodeWriter::getSegmentReference(const string& segment, int index) {
+	Segment seg = segmentEnumMap.at(segment);
+
+	switch (seg) {
+	case Segment::CONST:
 		return "@" + to_string(index) + "\n";
-	}
-	else if (segment == "static") {
+	case Segment::STATIC:
 		return "@" + inputFilename.substr(0, inputFilename.find_last_of(".") + 1) + to_string(index) + "\n";
-	}
-	else if (segment == "temp") {
+	case Segment::TEMP:
 		if (TEMP_START + index > 12) {
 			cout << "Invalid call to temp segment (" << to_string(TEMP_START + index) << "), exceeds bounds" << endl;
 			return "";
 		}
 		return "@" + to_string(TEMP_START + index) + "\n";
-	}
-	else if (segment == "pointer") {
+	case Segment::POINTER:
 		if (index == 0) {
 			return "@THIS\n";
 		}
@@ -121,35 +131,23 @@ string CodeWriter::getSegmentReference(string& segment, int index) {
 			cout << "Invalid call to pointer memory segment: pointer " + to_string(index) << endl;
 			return "";
 		}
-	}
-	else {
-		auto otherSegment = segmentMap.find(segment);
-		if (otherSegment != segmentMap.end())
-		{
-			// if (savedAddress.length() == 0)
-			// {
-
-			return (index > 0 ? ("@" + to_string(index) + "\n"
-				"D=A\n") : "") +
-				"@" + otherSegment->second + "\n" +
-				(index > 0 ? ("A=M+D\n") : "A=M\n");
-
-			// }
-			// return "@" + savedAddress + "\n"
-			//	"A=M\n";
-		}
-		cout << "ERROR, segment not found" << endl;
-		return "";
+	default:
+		string output;
+		if (index > 1) output += ("@" + to_string(index) + "\n"
+			"D=A\n");
+		output += "@" + segmentMap.find(segment)->second + "\n";
+		if (index > 1) output += "A=M+D\n";
+		else if (index == 1) output += "A=M+1\n";
+		else output += "A=M\n";
+		return output;
 	}
 }
 
-void CodeWriter::writePushPop(Command command, string& segment, int index)
+void CodeWriter::writePushPop(Command command, const string& segment, int index)
 {
 	string output;	
 
 	if (command == Command::C_POP) {
-		// const string savedAddress = "R13"; // R13-R15 are "general purpose registers"
-
 		if (segment == "constant") {
 			return; // pop constant not allowed
 		}
@@ -180,24 +178,32 @@ void CodeWriter::writePushPop(Command command, string& segment, int index)
 	else if (command == Command::C_PUSH) { 
 		output += "// push " + segment + " " + to_string(index) + "\n";
 		
-		output += getSegmentReference(segment, index); // A/M is now at referenced segment and index
+		if (segment == "constant" && (index == 1 || index == 0)) {
+			output += "@SP\n"
+				"M=M+1\n"
+				"A=M-1\n"
+				"M=" + to_string(index) + "\n";
+		}
+		else {
+			output += getSegmentReference(segment, index); // A/M is now at referenced segment and index
 
-		if (segment == "constant") output += "D=A\n";
-		else output += "D=M\n";
-		output += "@SP\n"
-			"M=M+1\n"
-			"A=M-1\n"
-			"M=D\n";
+			if (segment == "constant") output += "D=A\n";
+			else output += "D=M\n";
+			output += "@SP\n"
+				"M=M+1\n"
+				"A=M-1\n"
+				"M=D\n";
+		}
 	}
 
 	outputFile << output;
 }
 
-void CodeWriter::setFilename(std::string filename)
+void CodeWriter::setFilename(const std::string& filename)
 {
 	inputFilename = filename;
 	funcPrefix = ""; // this was previously included in case the VM translator was expected to add a filename prefix to functions.
-					 // turns out this is already done by the Jack compiler, so not necessary here. old code: filename.substr(0, filename.find_first_of(".")) + ".";
+					 // turns out this is already done by the Jack compiler, so not necessary here. 
 }
 
 void CodeWriter::writeInit()
@@ -214,24 +220,23 @@ void CodeWriter::writeInit()
 	writeReturnBootstrap();
 
 	outputFile << "(SysInit)\n";
-	string init = "Sys.init"; // writeCall requires string reference. annoying but saves extra copies on every subsequent call
-	writeCall(init, 0);
+	writeCall("Sys.init", 0);
 }
 
-void CodeWriter::writeLabel(std::string& label)
+void CodeWriter::writeLabel(const std::string& label)
 {
 	outputFile << "// label " + label + "\n"
 		"(" + funcPrefix + currFunction + "$" + label + ")\n";
 }
 
-void CodeWriter::writeGoto(std::string& label)
+void CodeWriter::writeGoto(const std::string& label)
 {
 	outputFile << "// goto " + label + "\n"
 		"@" + funcPrefix + currFunction + "$" + label + "\n"
 		"0;JMP\n";
 }
 
-void CodeWriter::writeIf(std::string& label)
+void CodeWriter::writeIf(const std::string& label)
 {
 	outputFile << "// if-goto " + label + "\n"
 		"@SP\n" // pop latest item on stack and save in D
@@ -241,7 +246,7 @@ void CodeWriter::writeIf(std::string& label)
 		"D;JNE\n"; // jump if latest item on the stack is not false.
 }
 
-void CodeWriter::writeFunction(std::string& functionName, int numVars)
+void CodeWriter::writeFunction(const std::string& functionName, int numVars)
 {
 	currFunction = functionName;
 	outputFile << "// function " + functionName + " " + to_string(numVars) + "\n"
@@ -262,7 +267,7 @@ void CodeWriter::writeFunction(std::string& functionName, int numVars)
 	}
 }
 
-void CodeWriter::writeCall(std::string& functionName, int numArgs)
+void CodeWriter::writeCall(const std::string& functionName, int numArgs)
 {
 	int callCount = 1;
 
@@ -275,20 +280,25 @@ void CodeWriter::writeCall(std::string& functionName, int numArgs)
 	}
 	else {
 		functionCallCount.emplace(currFunction, 1);
-	}
-
-	
+	}	
 
 	// callCount tracks the number of calls made within the current function
 	const string returnSymbol = funcPrefix + currFunction + "$ret." + to_string(callCount);
 
 	// store numArgs in R13, returnSymbol in R14, and function name (address) in R15, then call bootstrap code
-	outputFile << "// call " + functionName + " " + to_string(numArgs) + "\n"
-		"@" + to_string(numArgs) + "\n"
-		"D=A\n"
-		"@R13\n"
-		"M=D\n"
-		"@" + returnSymbol + "\n"
+	outputFile << "// call " + functionName + " " + to_string(numArgs) + "\n";
+	if (numArgs > 1) {
+		outputFile << "@" + to_string(numArgs) + "\n"
+			"D=A\n"
+			"@R13\n"
+			"M=D\n";
+	}
+	else {
+		outputFile << "@R13\n"
+			"M=" << to_string(numArgs) << "\n";
+	}
+		
+	outputFile << "@" + returnSymbol + "\n"
 		"D=A\n"
 		"@R14\n"
 		"M=D\n"
@@ -406,7 +416,7 @@ void CodeWriter::writeReturn()
 		"0;JMP\n";
 }
 
-void CodeWriter::writeComment(string& comment) {
+void CodeWriter::writeComment(const string& comment) {
 	outputFile << "// " << comment << endl; // double set of "//" will indicate comments from vm file
 }
 

@@ -10,7 +10,7 @@ class Parser
 // Ignore all white space and comments in vm file
 {
 public:
-	Parser(std::string filename); // open file
+	Parser(const std::string filename); // open file
 	bool didFailOpen();
 
 	bool hasMoreCommands(); // more commands in current input?
@@ -21,7 +21,7 @@ public:
 	std::string arg1(); // returns first arg of current command. for C_ARITHMETIC, command itself (add, sub) is returned.
 						// should not be called if current command is C_RETURN
 
-	int arg2(); // returns second argument if current command is C_PUSH, C_POP, C_FUNCTION or C_CALL
+	const int arg2(); // returns second argument if current command is C_PUSH, C_POP, C_FUNCTION or C_CALL
 
 	std::string& getCurrLine();
 	void close();

@@ -15,7 +15,7 @@ public:
 	SymbolTable();
 	void reset();
 	void define(const std::string& name, const std::string& type, const Kind kind);
-	unsigned int& getKindCount(Kind kind); // num vars of given kind in the current scope
+	unsigned int& getKindCount(Kind kind);
 	Kind kindOf(std::string& name);
 	std::string typeOf(std::string& name);
 	int idxOf(std::string& name);

@@ -8,27 +8,26 @@
 #include <map>
 #include <tuple>
 
-// enum class ItReturnType { LOCAL = 0, CLASS, NONE };
 typedef std::tuple<std::map<std::string, const STEntry>::iterator, bool> ItWithResult;
 
 class CompilationEngine
 {
 public:
-	CompilationEngine(JackTokenizer *tkA, VMWriter *vmA); // must call compileClass
+	CompilationEngine(JackTokenizer& tkA, VMWriter& vmA);
 	void compileClass();
 	void compileClassVarDec();
 	void compileSubroutineDec();
-	void compileParameterList(bool isMethod = false); // does not handle enclosing parens
+	void compileParameterList(bool isMethod = false);
 	void compileSubroutineBody(std::string& funName, std::string& type, Keyword key);
 	void compileVarDec();
-	void compileStatements(const std::string& type = std::string()); // does not handle enclosing braces
+	void compileStatements(const std::string& type = std::string());
 	void compileLet();
 	void compileIf();
 	void compileWhile();
 	void compileDo();
 	void compileReturn(const std::string& type);
 	void compileExpression();
-	void compileTerm(); // need extra lookahead to check for [, ( or .
+	void compileTerm();
 	int compileExpressionList();
 	void compileIdentifier(bool beingDefined, bool isSubroutine, const std::string& savedToken = std::string(), int argCount = 0);
 	void compileTermIdentifier();
@@ -36,9 +35,9 @@ public:
 private:
 	std::string className;
 	bool failedOpen = false;
-	JackTokenizer* tk;
-	VMWriter* vm;
-	void writeTkAndAdvance();
+	JackTokenizer& tk;
+	VMWriter& vm;
+	void advanceTk();
 	void checkVarDec(bool isClass);
 	ItWithResult getVarIt(const std::string& name);
 	bool prepareMethod(std::string& token, bool sureMethod = false);

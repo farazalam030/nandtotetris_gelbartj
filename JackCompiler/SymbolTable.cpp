@@ -33,8 +33,6 @@ void SymbolTable::define(const std::string& name, const std::string& type, const
 
 unsigned int& SymbolTable::getKindCount(Kind kind)
 {
-	// This will actually return the highest index, not the var count. 
-	// No items of kind and 1 item of kind will both return 0. Afterward, returns count - 1.
 	return kindCount.at(kind);
 }
 

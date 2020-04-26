@@ -10,18 +10,16 @@
 class JackTokenizer
 {
 public:
-	JackTokenizer(const std::string& inputFilename, const std::string& outputFilename);
 	JackTokenizer(const std::string& inputFilename);
 	bool hasMoreTokens();
-	void advance(); // call only if hasMoreTokens(). Initially there is no current token
+	void advance();
 	Token tokenType();
-	Keyword keyword(); // call only if tokenType == KEYWORD
-	char symbol(); // call only if tokenType == SYMBOL
-	std::string& identifier(); // if tokenType == IDENTIFIER. output <, >, " and & as &lt;, &gt;, &quote; and &amp;
-	int intVal(); // if tokenType == INT_CONST
-	std::string& stringVal(); // if tokenType == STRING_CONST. Do not include double-quotes
-	void writeCurrToken(std::ofstream& destination, bool jsonMode=false);
-	int currPos();
+	Keyword keyword();
+	char symbol();
+	std::string& identifier();
+	int intVal();
+	std::string& stringVal();
+	int currLineNum();
 	std::ofstream& getOutputFile();
 	void close();
 	bool didFailOpen();
@@ -36,11 +34,8 @@ private:
 	std::string currWord;
 	std::map<int, int> lineNums;
 	bool abortFlag = false;
-	// char currChar;
 	Token currTokenType = Token::NONE;
 	bool failedOpen = false;
-	static const std::map<std::string, Keyword> keywordList;
-	static const std::set<char> symbols;
 	void stripAllComments();
 	bool removeComments(std::string& line);
 };
