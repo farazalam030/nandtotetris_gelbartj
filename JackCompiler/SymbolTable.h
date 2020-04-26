@@ -14,15 +14,15 @@ class SymbolTable
 public:
 	SymbolTable();
 	void reset();
-	void define(std::string& name, std::string& type, Kind kind);
-	unsigned int& kindIdx(Kind kind); // num vars of given kind in the current scope
+	void define(const std::string& name, const std::string& type, const Kind kind);
+	unsigned int& getKindCount(Kind kind); // num vars of given kind in the current scope
 	Kind kindOf(std::string& name);
 	std::string typeOf(std::string& name);
-	int countOf(std::string& name);
-	std::map<std::string, STEntry>& getTable();
+	int idxOf(std::string& name);
+	std::map<std::string, const STEntry>& getTable();
 	~SymbolTable();
 private:
-	std::map<std::string, STEntry> table;
+	std::map<std::string, const STEntry> table;
 	std::map<Kind, unsigned int> kindCount;
 };
 

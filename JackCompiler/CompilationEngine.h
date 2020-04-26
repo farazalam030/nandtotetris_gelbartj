@@ -9,7 +9,7 @@
 #include <tuple>
 
 // enum class ItReturnType { LOCAL = 0, CLASS, NONE };
-typedef std::tuple<std::map<std::string, STEntry>::iterator, bool> ItWithResult;
+typedef std::tuple<std::map<std::string, const STEntry>::iterator, bool> ItWithResult;
 
 class CompilationEngine
 {
@@ -19,14 +19,14 @@ public:
 	void compileClassVarDec();
 	void compileSubroutineDec();
 	void compileParameterList(bool isMethod = false); // does not handle enclosing parens
-	void compileSubroutineBody(std::string& funName, std::string& type);
+	void compileSubroutineBody(std::string& funName, std::string& type, Keyword key);
 	void compileVarDec();
-	void compileStatements(std::string& type); // does not handle enclosing braces
+	void compileStatements(const std::string& type = std::string()); // does not handle enclosing braces
 	void compileLet();
 	void compileIf();
 	void compileWhile();
 	void compileDo();
-	void compileReturn(std::string& type);
+	void compileReturn(const std::string& type);
 	void compileExpression();
 	void compileTerm(); // need extra lookahead to check for [, ( or .
 	int compileExpressionList();
@@ -41,10 +41,8 @@ private:
 	void writeTkAndAdvance();
 	void checkVarDec(bool isClass);
 	ItWithResult getVarIt(const std::string& name);
-	bool prepareMethod(std::string& token);
+	bool prepareMethod(std::string& token, bool sureMethod = false);
 	bool isDefined(std::string var);
-	// std::string makeOpenTag(NonTerminal, bool isList = false);
-	// std::string makeCloseTag(NonTerminal, bool isList = false);
 	Status eat(Keyword keywordType, bool isOptional = false);
 	Status eat(Token tokenType, bool isOptional = false);
 	Status eat(char symbol, bool isOptional = false);
@@ -54,5 +52,6 @@ private:
 	Status eatOp(bool isOptional = false, bool noAdvance = false);
 	SymbolTable classTable;
 	SymbolTable subroutineTable;
+	std::set<std::string> methodList;
 };
 

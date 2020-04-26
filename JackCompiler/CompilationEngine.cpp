@@ -69,6 +69,31 @@ Status CompilationEngine::eat(Token tokenType, bool isOptional) {
 	else {
 		if (tk->tokenType() == Token::INT_CONST)
 			vm->writePush(Segment::CONST, tk->intVal());
+		else if (tk->tokenType() == Token::STRING_CONST) {
+			string stringConst = tk->stringVal();
+			size_t length = stringConst.length();
+			vm->writePush(Segment::CONST, length);
+			vm->writeCall("String.new", 1);
+			for (size_t i = 0; i < length; ++i) {
+				vm->writePush(Segment::CONST, stringConst.at(i));
+				vm->writeCall("String.appendChar", 2);
+			}
+		}
+		else if (tk->tokenType() == Token::KEYWORD) {
+			switch (tk->keyword()) {
+			case Keyword::THIS: // only case I am aware of is "return this"
+				vm->writePush(Segment::POINTER, 0);
+				break;
+			case Keyword::K_NULL: // fall-through
+			case Keyword::FALSE:
+				vm->writePush(Segment::CONST, 0);
+				break;
+			case Keyword::TRUE:
+				vm->writePush(Segment::CONST, 1);
+				vm->writeArithmetic(Command::NEG);
+				break;
+			}
+		}
 		writeTkAndAdvance();
 		return Status::OK;
 	}
@@ -95,19 +120,7 @@ Status CompilationEngine::eat(Keyword keywordType, bool isOptional) {
 		return Status::SYNTAX_ERROR;
 	}
 	else {
-		switch (keywordType) {
-		case Keyword::THIS: // only case I am aware of is "return this"
-			vm->writePush(Segment::POINTER, 0);
-			break;
-		case Keyword::K_NULL: // fall-through
-		case Keyword::FALSE:
-			vm->writePush(Segment::CONST, 0);
-			break;
-		case Keyword::TRUE:
-			vm->writePush(Segment::CONST, 1);
-			vm->writeArithmetic(Command::NEG);
-			break;
-		}
+		cout << "In eat keyword function with keyword " << reverseKeywordList.at(keywordType) << endl;
 		writeTkAndAdvance();
 		return Status::OK;
 	}
@@ -161,18 +174,6 @@ void CompilationEngine::writeTkAndAdvance() {
 		tk->advance();
 	}
 }
-
-/*
-string CompilationEngine::makeOpenTag(NonTerminal nt, bool isList) {
-	string tagName = nonTerminal[static_cast<int>(nt)];
-	return (jsonMode ? "\"" + tagName + "\": " + (isList ? "[" : "{") : "<" + tagName + ">") + "\n";
-}
-
-string CompilationEngine::makeCloseTag(NonTerminal nt, bool isList) {
-	string tagName = nonTerminal[static_cast<int>(nt)];
-	return (jsonMode ? (isList ? "]," : "},") : "</" + tagName + ">") + "\n";
-}
-*/
 
 void CompilationEngine::compileClass()
 {
@@ -238,39 +239,36 @@ void CompilationEngine::compileClassVarDec()
 	eatType();
 	checkVarDec(true);
 	classTable.define(tk->identifier(), type, kind);
+	cout << "==> Defining class variable " << tk->identifier() << endl;
 	eat(Token::IDENTIFIER);
-	// compileIdentifier(true, false);
 	while (eat(',', true) == Status::OK) {
 		checkVarDec(true);
+		cout << "==> Defining class variable " << tk->identifier() << endl;
 		classTable.define(tk->identifier(), type, kind);
 		eat(Token::IDENTIFIER);
-		// compileIdentifier(true, false);
 	}
 	eat(';');
 }
 
 void CompilationEngine::compileSubroutineDec()
 {
+	cout << "=======" << endl;
 	subroutineTable.reset();
 	Keyword key = tk->keyword();
 	eat(Token::KEYWORD);
 	string classNameOrType = tk->identifier();
 	eatTypeWithVoid();
 	string funName = tk->identifier();
-	compileIdentifier(true, true);
+	eat(Token::IDENTIFIER);
+
+	if (key == Keyword::METHOD) {
+		methodList.insert(funName);
+	}
+
 	eat('(');
 	compileParameterList(key == Keyword::METHOD);
 	eat(')');
-	if (key == Keyword::CONSTRUCTOR) {
-		vm->writePush(Segment::CONST, classTable.getTable().size());
-		vm->writeCall("Memory.alloc", 1); // 1 argument, which is the number of class variables
-		vm->writePop(Segment::POINTER, 0);
-	}
-	else if (key == Keyword::METHOD) {
-		vm->writePush(Segment::ARG, 0);
-		vm->writePop(Segment::POINTER, 0);
-	}
-	compileSubroutineBody(funName, classNameOrType); // push pointer 0 at end is already captured in "return this" statement
+	compileSubroutineBody(funName, classNameOrType, key); // push pointer 0 at end is already captured in "return this" statement
 													// for constructors
 }
 
@@ -278,22 +276,22 @@ void CompilationEngine::compileParameterList(bool isMethod)
 {
 	string type = tk->identifier();
 	int numArgs = 0;
-	if (isMethod) { // I don't think this is the right place for this.....
-		string thisStr = "this"; // define() requires string reference
-		subroutineTable.define(thisStr, className, Kind::ARG);
+	if (isMethod) {
+		cout << "isMethod is " << isMethod << endl;
+		subroutineTable.define("this", className, Kind::ARG);
 		++numArgs;
 	}
 	if (eatType(true) == Status::OK) {
+		cout << "==> Defining arg variable " << tk->identifier() << endl;
 		subroutineTable.define(tk->identifier(), type, Kind::ARG);
 		eat(Token::IDENTIFIER);
-		// compileIdentifier(true, false); // parameter list args are ARG variable declarations. but don't need any code for declarations
 		++numArgs;
 		while (eat(',', true) == Status::OK) {
 			type = tk->identifier();
 			eatType();
+			cout << "==> Defining arg variable " << tk->identifier() << endl;
 			subroutineTable.define(tk->identifier(), type, Kind::ARG);
 			eat(Token::IDENTIFIER);
-			// compileIdentifier(true, false);
 			++numArgs;
 		}
 	}
@@ -301,15 +299,22 @@ void CompilationEngine::compileParameterList(bool isMethod)
 	// return numArgs;
 }
 
-void CompilationEngine::compileSubroutineBody(string& funName, string& type)
+void CompilationEngine::compileSubroutineBody(string& funName, string& type, Keyword key)
 {
-	int localCount = 0;
 	eat('{');
 	while (!tk->aborted() && tk->tokenType() == Token::KEYWORD && tk->keyword() == Keyword::VAR) {
-		++localCount;
 		compileVarDec();
 	}
-	vm->writeFunction(className + "." + funName, localCount);
+	vm->writeFunction(className + "." + funName, subroutineTable.getKindCount(Kind::VAR));
+	if (key == Keyword::CONSTRUCTOR) {
+		vm->writePush(Segment::CONST, static_cast<int>(classTable.getTable().size()));
+		vm->writeCall("Memory.alloc", 1); // 1 argument, which is the number of class variables
+		vm->writePop(Segment::POINTER, 0);
+	}
+	else if (key == Keyword::METHOD) {
+		vm->writePush(Segment::ARG, 0);
+		vm->writePop(Segment::POINTER, 0);
+	}
 	compileStatements(type);
 	eat('}');
 	// return localCount;
@@ -317,25 +322,25 @@ void CompilationEngine::compileSubroutineBody(string& funName, string& type)
 
 void CompilationEngine::compileVarDec()
 {
-	// outFile << makeOpenTag(NonTerminal::VAR_DEC);
 	eat(Keyword::VAR);
 	string type = tk->identifier();
 	eatType();
 	checkVarDec(false);
-	classTable.define(tk->identifier(), type, Kind::VAR);
+	cout << "==> Defining local variable " << tk->identifier() << endl;
+	subroutineTable.define(tk->identifier(), type, Kind::VAR);
+	
 	eat(Token::IDENTIFIER);
-	// compileIdentifier(true, false);
 	while (eat(',', true) == Status::OK) {
 		checkVarDec(false);
-		classTable.define(tk->identifier(), type, Kind::VAR);
+		cout << "==> Defining local variable " << tk->identifier() << endl;
+		subroutineTable.define(tk->identifier(), type, Kind::VAR);
+		
 		eat(Token::IDENTIFIER);
-		// compileIdentifier(true, false);
 	}
 	eat(';');
-	// outFile << makeCloseTag(NonTerminal::VAR_DEC);
 }
 
-void CompilationEngine::compileStatements(string& type)
+void CompilationEngine::compileStatements(const string& type)
 {
 	bool endFlag = false;
 	while (!tk->aborted() && tk->tokenType() == Token::KEYWORD && !endFlag) {
@@ -364,34 +369,41 @@ void CompilationEngine::compileStatements(string& type)
 }
 
 ItWithResult CompilationEngine::getVarIt(const string& name) {
-	auto it = subroutineTable.getTable().find(tk->identifier());
+	auto it = subroutineTable.getTable().find(name);
 	if (it != subroutineTable.getTable().end()) {
 		return std::make_tuple(it, true);
 	}
-	it = classTable.getTable().find(tk->identifier());
+	it = classTable.getTable().find(name);
 	if (it != classTable.getTable().end()) {
 		return std::make_tuple(it, true);
 	}
 	else return std::make_tuple(it, false);
 }
 
-bool CompilationEngine::prepareMethod(string& token)
+bool CompilationEngine::prepareMethod(string& token, bool sureMethod)
 {
-	std::map<string, STEntry>::iterator it;
+	cout << "In preparemethod with token " << token << endl;
+	if (sureMethod) {
+		vm->writePush(Segment::POINTER, 0);
+		token = className + "." + token;
+		return true;
+	}
+	std::map<string, const STEntry>::iterator it;
 	bool itResult;
 	std::tie(it, itResult) = getVarIt(token);
 	if (!itResult) {
 		token = token + "." + tk->identifier();
 	}
 	else {
-		token = tk->identifier();
+		token = (it->second.type) + "." + tk->identifier();
 		vm->writePush(kindToSegment(it->second.kind), it->second.idx);
 	}
+	cout << "After processing, token is now " << token << endl;
 	return itResult;
 }
 
 bool CompilationEngine::isDefined(std::string var) {
-	std::map<string, STEntry>::iterator it;
+	std::map<string, const STEntry>::iterator it;
 	bool itResult;
 	std::tie(it, itResult) = getVarIt(var);
 	return itResult;
@@ -399,24 +411,40 @@ bool CompilationEngine::isDefined(std::string var) {
 
 void CompilationEngine::compileLet()
 {
+	bool isArray = false;
 	eat(Keyword::LET);
-	if (!isDefined(tk->identifier())) {
+	string varName = tk->identifier();
+
+	std::map<string, const STEntry>::iterator it;
+	bool itResult;
+	std::tie(it, itResult) = getVarIt(varName);
+	
+	if (!itResult) {
 		cout << brightError << " at line " << tk->currPos() << ": Attempting to assign value to undeclared variable \"" << tk->identifier() << "\"" << endl;
 		return;
 	}
-	string varName = tk->identifier();
-	eat(Token::IDENTIFIER);
+	
+	eat(Token::IDENTIFIER);	
+
 	if (eat('[', true) == Status::OK) {
+		isArray = true;
+		vm->writePush(kindToSegment(it->second.kind), it->second.idx);
 		compileExpression();
+		vm->writeArithmetic(Command::ADD);
 		eat(']');
 	}
 	eat('=');
 	compileExpression();
 	// after returning from compileExpression, result of expression will be at the top of the stack
-	std::map<string, STEntry>::iterator it;
-	bool itResult;
-	std::tie(it, itResult) = getVarIt(varName);
-	vm->writePop(kindToSegment(it->second.kind), it->second.idx);
+	if (isArray) {
+		vm->writePop(Segment::TEMP, 0);
+		vm->writePop(Segment::POINTER, 1);
+		vm->writePush(Segment::TEMP, 0);
+		vm->writePop(Segment::THAT, 0);
+	}
+	else {
+		vm->writePop(kindToSegment(it->second.kind), it->second.idx);
+	}
 	eat(';');
 }
 
@@ -477,6 +505,7 @@ void CompilationEngine::compileWhile()
 	eat('{');
 	compileStatements();
 	eat('}');
+	vm->writeGoto(whileBlock);
 	vm->writeLabel(afterWhile);
 }
 
@@ -486,21 +515,27 @@ void CompilationEngine::compileDo()
 	string subOrObjName = tk->identifier();
 	tk->advance();
 	int numArgs = 0;
+	bool hasClassAccess = tk->tokenType() == Token::SYMBOL && tk->symbol() == '.';
 	if (eat('.', true) == Status::OK) {
 		bool isMethod = prepareMethod(subOrObjName);
 		if (isMethod) ++numArgs;
 		tk->advance();
 	}
+	else {
+		prepareMethod(subOrObjName, true);
+		++numArgs;
+	}
 	eat('(');
 	numArgs += compileExpressionList();
 	eat(')');
+	cout << "From Do, calling " << subOrObjName << " with " << numArgs << " arguments" << endl;
 	compileIdentifier(false, true, subOrObjName, numArgs);
 	eat(';');
 	vm->writePop(Segment::TEMP, 0); // A "do" call means the caller doesn't care about
 									// the return value. Pop into temp to throw it away
 }
 
-void CompilationEngine::compileReturn(string& type)
+void CompilationEngine::compileReturn(const string& type)
 {
 	eat(Keyword::RETURN);
 	if (eat(';', true) == Status::OK) {
@@ -517,6 +552,7 @@ void CompilationEngine::compileReturn(string& type)
 
 void CompilationEngine::compileExpression()
 {
+	cout << "In compile expression for " << tk->identifier() << endl;
 	compileTerm(); // push onto stack
 	while (eatOp(true, true) == Status::OK) {
 		Command op = opMap.find(tk->symbol())->second;
@@ -532,15 +568,17 @@ static bool isKeywordConst(Keyword key) {
 
 void CompilationEngine::compileTerm()
 {
+	cout << "In compile term for " << tk->identifier() << endl;
 	if (tk->tokenType() == Token::IDENTIFIER) {
 		compileTermIdentifier();
 	}
-	else if (eat(Token::INT_CONST, true) == Status::OK) {} // done
+	else if (eat(Token::INT_CONST, true) == Status::OK) {}
 	else if (eat(Token::STRING_CONST, true) == Status::OK) {}
 	else if (tk->tokenType() == Token::KEYWORD && isKeywordConst(tk->keyword())) {
+		cout << "Eating keyword constant " << (int)tk->keyword() << endl;
 		eat(Token::KEYWORD);
 	}
-	else if (eat('(', true) == Status::OK) { // done
+	else if (eat('(', true) == Status::OK) {
 		compileExpression();
 		eat(')');
 	}
@@ -585,10 +623,11 @@ void CompilationEngine::compileIdentifier(bool beingDefined, bool isSubroutine, 
 		return;
 	}
 
-	std::map<string, STEntry>::iterator it;
+	std::map<string, const STEntry>::iterator it;
 	bool itResult;
 	std::tie(it, itResult) = getVarIt(token);
 
+	cout << "Checked token " << token << " for definition. Result: " << itResult << endl;
 	if (itResult && !beingDefined) {
 		vm->writePush(kindToSegment(it->second.kind), it->second.idx);
 	}	
@@ -603,34 +642,48 @@ void CompilationEngine::compileTermIdentifier() {
 	string token = tk->identifier();
 	tk->advance();
 	int args = 0;
+	bool usedSymbolFlag = false;
+	cout << "In compiletermidentifier with token " << token << endl;
 	if (tk->tokenType() == Token::SYMBOL) {
 		switch (tk->symbol()) {
 		case '[':
-			compileIdentifier(false, false, token);
+			compileIdentifier(false, false, token); // pushes base address onto stack
 			eat('[');
 			compileExpression();
 			eat(']');
+			vm->writeArithmetic(Command::ADD);
+			vm->writePop(Segment::POINTER, 1);
+			vm->writePush(Segment::THAT, 0);
+			usedSymbolFlag = true;
 			break;
 
 		case '(':
+			cout << "Identified method call" << endl;
 			eat('(');
-			args = compileExpressionList(); // this will push needed arguments for subroutine call onto the stack and return count
+			prepareMethod(token, true);
+			args = compileExpressionList() + 1;
 			eat(')');
+			cout << "Calling " << token << " with " << args << " arguments" << endl;
 			compileIdentifier(false, true, token, args);
+			usedSymbolFlag = true;
 			break;
 
 		case '.':
+			cout << "Identified function call or method call in other object" << endl;
 			eat('.');
-			prepareMethod(token);
+			bool isMethod = prepareMethod(token);
 			eat(Token::IDENTIFIER);
 			eat('(');
-			args = compileExpressionList();
+			args = compileExpressionList() + (isMethod ? 1 : 0); 
 			eat(')');
 			compileIdentifier(false, true, token, args);	// needs to be able to handle Foo.bar() call	
+			cout << "Calling " << token << " with " << args << " arguments" << endl;
+			usedSymbolFlag = true;
 			break;
 		}
 	}
-	else {
+	if (!usedSymbolFlag) {
+		cout << "Calling identifier for regular variable " << endl;
 		compileIdentifier(false, false, token); // regular variable
 	}
 }

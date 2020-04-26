@@ -43,27 +43,27 @@ void VMWriter::writeArithmetic(Command command)
 	outFile << commands[static_cast<int>(command)] << endl;
 }
 
-void VMWriter::writeLabel(const std::string& label)
+void VMWriter::writeLabel(string_view label)
 {
 	outFile << "label " << label << endl;
 }
 
-void VMWriter::writeGoto(const std::string& label)
+void VMWriter::writeGoto(string_view label)
 {
 	outFile << "goto " << label << endl;
 }
 
-void VMWriter::writeIf(const std::string& label)
+void VMWriter::writeIf(string_view label)
 {
 	outFile << "if-goto " << label << endl;
 }
 
-void VMWriter::writeCall(const std::string& name, int nArgs)
+void VMWriter::writeCall(string_view name, int nArgs)
 {
 	outFile << "call " << name << " " << nArgs << endl;
 }
 
-void VMWriter::writeFunction(const std::string& name, int nLocals)
+void VMWriter::writeFunction(string_view name, int nLocals)
 {
 	outFile << "function " << name << " " << nLocals << endl;
 }
