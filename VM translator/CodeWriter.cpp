@@ -5,6 +5,7 @@
 #include <fstream>
 #include <set>
 #include <map>
+#include <algorithm>
 
 using namespace std;
 
@@ -39,25 +40,22 @@ void CodeWriter::writeArithmetic(const std::string& command)
 	string output = ("// " + command + "\n");
 	// Get first value from stack
 	output += "@SP\n"
-		"AM=M-1\n";
+		"A=M-1\n";
 	if (command == "neg") {
-		output += "M=-M\n"
-			"@SP\n"
-			"M=M+1\n";
+		output += "M=-M\n";
 		outputFile << output;
 		return;
 	}
 	else if (command == "not") {
-		output += "M=!M\n"
-			"@SP\n"
-			"M=M+1\n";
+		output += "M=!M\n";
 		outputFile << output;
 		return;
 	}
 	// Save first value and get second value from stack
 	output += "D=M\n"
 		"@SP\n"
-		"AM=M-1\n";
+		"M=M-1\n"
+		"A=M-1\n";
 	// Now D holds the first value (y) and M holds the second value (x)
 	if (command == "add") {
 		output += "M=M+D\n";
@@ -70,9 +68,7 @@ void CodeWriter::writeArithmetic(const std::string& command)
 	}
 	else {
 		if (command == "sub") {
-			output += "M=M-D\n"
-				"@SP\n"
-				"M=M+1\n";
+			output += "M=M-D\n";
 			outputFile << output;
 			return;
 		}
@@ -95,14 +91,12 @@ void CodeWriter::writeArithmetic(const std::string& command)
 			"0;JMP\n"
 			"(TRUE_" + to_string(arithCount) + ")\n"
 			"@SP\n"
-			"A=M\n"
+			"A=M-1\n"
 			"M=-1\n" // In VM, true is represented by -1
 			"(FALSE_" + to_string(arithCount) + ")\n";
 		
 		++arithCount;
 	}
-	output += "@SP\n"
-		"M=M+1\n";
 	outputFile << output;
 }
 
@@ -133,74 +127,105 @@ string CodeWriter::getSegmentReference(const string& segment, int index) {
 		}
 	default:
 		string output;
-		if (index > 1) output += ("@" + to_string(index) + "\n"
+		if (index > 2) output += ("@" + to_string(index) + "\n"
 			"D=A\n");
 		output += "@" + segmentMap.find(segment)->second + "\n";
-		if (index > 1) output += "A=M+D\n";
-		else if (index == 1) output += "A=M+1\n";
+		if (index > 2) output += "A=M+D\n";
+		else if (index > 0) {
+			output += "A=M+1\n";
+			if (index == 2) output += "A=A+1\n";
+		}
 		else output += "A=M\n";
 		return output;
 	}
 }
 
-void CodeWriter::writePushPop(Command command, const string& segment, int index)
+void CodeWriter::writePush(const string& segment, int index, bool beforePop)
 {
-	string output;	
-
-	if (command == Command::C_POP) {
-		if (segment == "constant") {
-			return; // pop constant not allowed
-		}
-
-		output += "// pop " + segment + " " + to_string(index) + "\n";
+	outputFile << "// push " << segment << " " << to_string(index) << ", beforePop = " << beforePop << "\n";
 		
-		if ((segment == "local" || segment == "this" || segment == "that" || segment == "argument") && index > 0) {
-			output +=
-				"@" + to_string(index) + "\n"
-				"D=A\n"
-				"@" + segmentMap.find(segment)->second + "\n"
-				"D=D+M\n"  // address of where we want to store popped item now held in D
-				"@SP\n"
-				"AM=M-1\n"
-				"D=M+D\n"  // add address to popped value, since we only have one register to work with
-				"A=D-M\n"  // undo previous operation to extract original address and jump to it
-				"M=D-A\n"; // subtract address from D to get popped value
-		} 
-
-		else {
-			output += "@SP\n"
-				"AM=M-1\n"
-				"D=M\n" // last element in stack is now stored in D
-				+ getSegmentReference(segment, index) + // A/M is now at referenced segment and index
-				"M=D\n";
-		}
-	}
-	else if (command == Command::C_PUSH) { 
-		output += "// push " + segment + " " + to_string(index) + "\n";
-		
-		if (segment == "constant" && (index == 1 || index == 0)) {
-			output += "@SP\n"
+	if (segment == "constant" && index <= 2) {
+		if (!beforePop) {
+			outputFile << "@SP\n"
 				"M=M+1\n"
 				"A=M-1\n"
-				"M=" + to_string(index) + "\n";
+				"M=" << to_string(std::min(1,index)) << "\n";
+			if (index == 2) outputFile << "M=M+1\n";
 		}
 		else {
-			output += getSegmentReference(segment, index); // A/M is now at referenced segment and index
+			outputFile << "D=" << to_string(std::min(1,index)) << "\n";
+			if (index == 2) outputFile << "D=D+1\n";
+		}
+	}
+	else {
+		outputFile << getSegmentReference(segment, index); // A/M is now at referenced segment and index
 
-			if (segment == "constant") output += "D=A\n";
-			else output += "D=M\n";
-			output += "@SP\n"
+		if (segment == "constant") outputFile << "D=A\n";
+		else outputFile << "D=M\n";
+		if (!beforePop) {
+			outputFile << "@SP\n"
 				"M=M+1\n"
 				"A=M-1\n"
 				"M=D\n";
 		}
 	}
+}
 
-	outputFile << output;
+void CodeWriter::writePop(const string& segment, int index, bool afterPush) {
+	if (segment == "constant") {
+		cout << "Error, attempted to pop to constant memory segment" << endl;
+		return; // pop constant not allowed
+	}
+
+	outputFile << "// pop " << segment << " " << to_string(index) << ", afterPush = " << afterPush << "\n";
+
+	bool segmentNeedsAddition = (segment == "local" || segment == "this" || segment == "that" || segment == "argument");
+	if (segmentNeedsAddition && index > 0) {
+		if (afterPush) {
+			outputFile << "@SP\n"
+				"A=M\n"
+				"M=D\n";
+		}
+		if (index > 2) {
+			outputFile <<
+				"@" << to_string(index) << "\n"
+				"D=A\n";
+		}
+		outputFile << "@" << segmentMap.find(segment)->second << "\n";
+		if (index <= 2) {
+			outputFile << "D=M+1\n";
+			if (index == 2) outputFile << "D=D+1\n";
+		}
+		else {
+			outputFile << "D=M+D\n";
+		}  // address of where we want to store popped item now held in D
+		if (afterPush) {
+			outputFile << "@SP\n"
+				"A=M\n";
+		}
+		else {
+			outputFile << "@SP\n"
+				"AM=M-1\n";
+		}
+		outputFile << "D=M+D\n"  // add address to popped value, since we only have one register to work with
+			"A=D-M\n"  // undo previous operation to extract original address and jump to it
+			"M=D-A\n"; // subtract address from D to get popped value
+	}
+
+	else {
+		if (!afterPush) {
+			outputFile << "@SP\n"
+				"AM=M-1\n"
+				"D=M\n"; // last element in stack is now stored in D
+		}
+			outputFile << getSegmentReference(segment, index) // A/M is now at referenced segment and index
+			<< "M=D\n";
+	}	
 }
 
 void CodeWriter::setFilename(const std::string& filename)
 {
+	// cout << "Updating filename to " << filename << endl;
 	inputFilename = filename;
 	funcPrefix = ""; // this was previously included in case the VM translator was expected to add a filename prefix to functions.
 					 // turns out this is already done by the Jack compiler, so not necessary here. 
@@ -209,7 +234,9 @@ void CodeWriter::setFilename(const std::string& filename)
 void CodeWriter::writeInit()
 {
 	// bootstrap code to initialize VM
-	outputFile << "@256\n"
+	constexpr int STACK_START = 256;
+
+	outputFile << "@" << STACK_START << "\n"
 		"D=A\n"
 		"@SP\n"
 		"M=D\n"
@@ -239,11 +266,11 @@ void CodeWriter::writeGoto(const std::string& label)
 void CodeWriter::writeIf(const std::string& label)
 {
 	outputFile << "// if-goto " + label + "\n"
-		"@SP\n" // pop latest item on stack and save in D
+		"@SP\n"
 		"AM=M-1\n"
 		"D=M\n"
 		"@" + funcPrefix + currFunction + "$" + label + "\n"
-		"D;JNE\n"; // jump if latest item on the stack is not false.
+		"D;JNE\n";
 }
 
 void CodeWriter::writeFunction(const std::string& functionName, int numVars)
@@ -255,15 +282,28 @@ void CodeWriter::writeFunction(const std::string& functionName, int numVars)
 	outputFile << "@SP\n"
 		"D=M\n"
 		"@LCL\n" // update LCL to match SP even when 0 vars
-		"M=D\n"
-		"A=M\n";
+		"M=D\n";
 
 	if (numVars > 0) {
-		for (int i = 0; i < numVars; ++i) {
-			outputFile << "M=0\n"
+		if (numVars > 2) {
+			outputFile << "@" + to_string(numVars) + "\n"
+				"D=A\n"
 				"@SP\n"
-				"AM=M+1\n";
+				"M=M+D\n";
 		}
+		else {
+			outputFile << "@SP\n"
+				"M=M+1\n";
+			if (numVars == 2) outputFile << "M=M+1\n";
+		}
+		
+		outputFile << "A=M-1\n";
+		for (int i = 0; i < numVars; ++i) {
+			outputFile << "M=0\n";
+			if (i < numVars - 1)
+				outputFile << "A=A-1\n";
+		}
+
 	}
 }
 
@@ -274,20 +314,17 @@ void CodeWriter::writeCall(const std::string& functionName, int numArgs)
 	auto callIt = functionCallCount.find(currFunction);
 
 	if (callIt != functionCallCount.end()) {
-		callCount = callIt->second;
-		++callCount;
-		callIt->second = callCount;
+		callCount = ++(callIt->second);
 	}
 	else {
 		functionCallCount.emplace(currFunction, 1);
 	}	
 
-	// callCount tracks the number of calls made within the current function
 	const string returnSymbol = funcPrefix + currFunction + "$ret." + to_string(callCount);
 
 	// store numArgs in R13, returnSymbol in R14, and function name (address) in R15, then call bootstrap code
 	outputFile << "// call " + functionName + " " + to_string(numArgs) + "\n";
-	if (numArgs > 1) {
+	if (numArgs > 2) {
 		outputFile << "@" + to_string(numArgs) + "\n"
 			"D=A\n"
 			"@R13\n"
@@ -295,7 +332,8 @@ void CodeWriter::writeCall(const std::string& functionName, int numArgs)
 	}
 	else {
 		outputFile << "@R13\n"
-			"M=" << to_string(numArgs) << "\n";
+			"M=" << to_string(std::min(1,numArgs)) << "\n";
+		if (numArgs == 2) outputFile << "M=M+1\n";
 	}
 		
 	outputFile << "@" + returnSymbol + "\n"
@@ -309,7 +347,6 @@ void CodeWriter::writeCall(const std::string& functionName, int numArgs)
 		"@__CallBootstrap__\n"
 		"0;JMP\n"
 		"(" + returnSymbol + ")\n";
-		// return here when finished with function call
 }
 
 void CodeWriter::writeCallBootstrap() {

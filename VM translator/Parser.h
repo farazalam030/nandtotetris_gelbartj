@@ -7,22 +7,16 @@
 #include "Shared.h"
 
 class Parser
-// Ignore all white space and comments in vm file
 {
 public:
-	Parser(const std::string filename); // open file
+	Parser(const std::string& filename);
 	bool didFailOpen();
-
-	bool hasMoreCommands(); // more commands in current input?
-	void advance(); // reads next command and makes it current command. only if hasMoreCommands()
-
-	Command commandType(); // return C_ARITHMETIC for all arithmetic/logical commands
+	bool hasMoreCommands(); 
+	void advance();
+	Command commandType();
 	Command currCommandType = Command::NONE;
-	std::string arg1(); // returns first arg of current command. for C_ARITHMETIC, command itself (add, sub) is returned.
-						// should not be called if current command is C_RETURN
-
-	const int arg2(); // returns second argument if current command is C_PUSH, C_POP, C_FUNCTION or C_CALL
-
+	std::string arg1(); 
+	const int arg2();
 	std::string& getCurrLine();
 	void close();
 
@@ -33,7 +27,6 @@ private:
 	void removeWhitespace(std::string& line);
 	std::ifstream vmFile;
 	std::string currLine;
-	static const std::set<std::string> arithCommands;
-	static const std::map<std::string, Command> commandMap;
+	std::set<std::string> calledFunctions;
 };
 

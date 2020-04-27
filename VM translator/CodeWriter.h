@@ -14,7 +14,8 @@ public:
 	CodeWriter(const std::string& filename); // open output file
 	
 	void writeArithmetic(const std::string& command);
-	void writePushPop(Command command, const std::string& segment, int index); // command argument should be C_PUSH or C_POP only
+	void writePush(const std::string& segment, int index, bool beforePop = false);
+	void writePop(const std::string& segment, int index, bool afterPush = false);
 
 	void setFilename(const std::string& filename);
 	void writeInit();

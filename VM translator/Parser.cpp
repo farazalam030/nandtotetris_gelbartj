@@ -9,8 +9,8 @@
 
 using namespace std;
 
-const set<string> Parser::arithCommands = { "add", "sub", "neg", "eq", "gt", "lt", "and", "or", "not" };
-const map<string, Command> Parser::commandMap = {
+static const set<string> arithCommands = { "add", "sub", "neg", "eq", "gt", "lt", "and", "or", "not" };
+static const map<string, Command> commandMap = {
 	{ "pop",      Command::C_POP },
 	{ "push",     Command::C_PUSH },
 	{ "if-goto",  Command::C_IF },
@@ -22,9 +22,10 @@ const map<string, Command> Parser::commandMap = {
 	{ "//",       Command::COMMENT }
 };
 
-Parser::Parser(string filename)
+Parser::Parser(const string& filename)
 {
 	vmFile.open(filename);
+	int numFunctions = 0;
 	if (vmFile.is_open()) {
 		cout << "Opened file " << filename << endl;
 	}
@@ -94,7 +95,7 @@ Command Parser::commandType()
 	}
 
 	else {
-		cout << "Command " << commandString << " not found." << endl;
+		// cout << "Command " << commandString << " not found." << endl;
 		return Command::NONE;
 	}
 }
@@ -131,6 +132,7 @@ string& Parser::getCurrLine() {
 void Parser::close() {
 	if (vmFile.is_open()) {
 		vmFile.close();
+		cout << "===============" << endl;
 	}
 }
 
