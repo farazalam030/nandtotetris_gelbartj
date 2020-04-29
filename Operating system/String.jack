@@ -1,0 +1,179 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/String.jack
+
+/**
+ * Represents character strings. In addition for constructing and disposing
+ * strings, the class features methods for getting and setting individual
+ * characters of the string, for erasing the string's last character,
+ * for appending a character to the string's end, and more typical
+ * string-oriented operations.
+ */
+class String {
+
+    field Array stringArray;
+    field int length;
+    field int maxLength;
+
+    /** constructs a new empty string with a maximum length of maxLength
+     *  and initial length of 0. */
+    constructor String new(int maxLen) {
+        let maxLength = maxLen;
+        if (maxLength > 0) {
+            let stringArray = Array.new(maxLength);
+        }
+        let length = 0;
+        return this;
+    }
+
+    /** Disposes this string. */
+    method void dispose() {
+        if (maxLength > 0) {
+            do stringArray.dispose();
+        }
+        do Memory.deAlloc(this);
+        return;
+    }
+
+    /** Returns the current length of this string. */
+    method int length() {
+        return length;
+    }
+
+    /** Returns the character at the j-th location of this string. */
+    method char charAt(int j) {
+        return stringArray[j];
+    }
+
+    /** Sets the character at the j-th location of this string to c. */
+    method void setCharAt(int j, char c) {
+        let stringArray[j] = c;
+        return;
+    }
+
+    /** Appends c to this string's end and returns this string. */
+    method String appendChar(char c) {
+        let stringArray[length] = c;
+        let length = length + 1;
+        return this;
+    }
+
+    /** Erases the last character from this string. */
+    method void eraseLastChar() {
+        let length = length - 1;
+        return;
+    }
+
+    /** Returns the integer value of this string, 
+     *  until a non-digit character is detected. */
+    method int intValue() {
+        var int i;
+        var int d;
+        var int j;
+        var int val;
+        var boolean isNegative;
+
+        let val = 0;
+        let i = 0;
+        let j = i;
+
+        if (stringArray[0] = 45) {
+            let isNegative = true;
+            let j = j + 1;
+        }
+        else {
+            let isNegative = false;
+        }
+
+        while (j < length) {
+            if ((stringArray[j] > 47) & (stringArray[j] < 58)) {
+                let d = stringArray[j] - 48;
+                let val = val * 10 + d;
+            }            
+            let j = j + 1;
+        }
+        if (isNegative) {
+            return (val * -1);
+        }
+        return val;
+    }
+
+    
+    function int numDigits(int val) {
+        var int i;
+        var int counter;
+
+        if (val = 0) {
+            return 0;
+        }
+
+        let counter = 1;
+        let i = 10;
+        while ((val / i) > 0) {
+            let i = i * 10;
+            let counter = counter + 1;
+        }
+        return counter;
+    }
+    
+
+    method void int2String(int val, int stringIndex) {
+        var int lastDigit;
+        var String s;
+        var int c; // treated as char
+
+        let lastDigit = val - ((val / 10) * 10); // modulo 10 using integer division
+        let c = lastDigit + 48;
+
+        let stringArray[stringIndex] = c;
+        if (val < 10) {
+            return;
+        }
+        else {
+            do int2String(val / 10, stringIndex - 1);
+        }
+        return;
+    }
+
+    /** Sets this string to hold a representation of the given value. */
+    method void setInt(int val) {
+        var int i;
+        var int valDigits;
+        var String s;
+
+        if (val > 0) {
+            let valDigits = String.numDigits(val);
+        }
+        else {
+            let valDigits = String.numDigits(val * -1);
+        }
+        let length = valDigits;
+
+        if (val > 0) {
+            do int2String(val, valDigits - 1);
+        }
+        else {
+            let stringArray[0] = 45; // negative sign
+            let length = length + 1;
+            do int2String(val * -1, valDigits);
+        }
+        
+        return;
+    }
+
+    /** Returns the new line character. */
+    function char newLine() {
+        return 128;
+    }
+
+    /** Returns the backspace character. */
+    function char backSpace() {
+        return 129;
+    }
+
+    /** Returns the double quote (") character. */
+    function char doubleQuote() {
+        return 34;
+    }
+}

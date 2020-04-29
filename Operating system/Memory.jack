@@ -1,0 +1,83 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Memory.jack
+
+/**
+ * This library provides two services: direct access to the computer's main
+ * memory (RAM), and allocation and recycling of memory blocks. The Hack RAM
+ * consists of 32,768 words, each holding a 16-bit binary number.
+ */ 
+class Memory {
+
+    static Array ram;
+    static Array heap;
+    static int freeList; 
+
+    /** Initializes the class. */
+    function void init() {
+        let ram = 0;
+        let heap = 2048; // heapBase
+        let freeList = heap;
+        let heap[0] = 0; // next free block. 0 means end of list
+        let heap[1] = 14334; //starting size of entire heap
+        return;
+    }
+
+    /** Returns the RAM value at the given address. */
+    function int peek(int address) {
+        return ram[address];
+    }
+
+    /** Sets the RAM value at the given address to the given value. */
+    function void poke(int address, int value) {
+        let ram[address] = value;
+        return;
+    }
+
+    /** Finds an available RAM block of the given size and returns
+     *  a reference to its base address. */
+    function int alloc(int size) {
+        var int currAddress;
+        var int prevAddress;
+
+        let currAddress = freeList;
+
+        while (Memory.peek(currAddress + 1) < (size + 2)) {
+            let prevAddress = currAddress;
+            let currAddress = Memory.peek(currAddress);
+            if (currAddress = 0) {
+                do Sys.error(4); // out of memory
+                do Sys.halt();
+            }
+        }
+
+        if (Memory.peek(currAddress + 1) = (size + 2)) { // block is exactly the needed size.
+                                                        // so simply delete from freeList
+            do Memory.poke(prevAddress, Memory.peek(currAddress));
+        }
+
+        else {
+            do Memory.poke(currAddress + 1, Memory.peek(currAddress + 1) - (size + 2));
+        }
+
+        return (currAddress + 2);
+    }
+
+    /** De-allocates the given object (cast as an array) by making
+     *  it available for future allocations. */
+    function void deAlloc(Array o) {
+         var int currAddress;
+
+        let currAddress = freeList;
+
+        while (Memory.peek(currAddress) > 0) {
+            let currAddress = Memory.peek(currAddress);         
+        }
+
+        do Memory.poke(currAddress, o - 2); // freeList address of o will be in o - 2. Size will be in o - 1.
+        do Memory.poke(o - 2, 0);
+
+        return;
+    }    
+}
