@@ -1,3 +1,4 @@
+ 
 // This file is part of www.nand2tetris.org
 // and the book "The Elements of Computing Systems"
 // by Nisan and Schocken, MIT Press.
@@ -15,7 +16,7 @@ class Math {
     function void init() {
         var int i;
 
-        let powersOf2 = Array.new(15);
+        let powersOf2 = Array.new(16);
         let powersOf2[0] = 1;
         let powersOf2[1] = 2;
         let powersOf2[2] = 4;
@@ -31,7 +32,7 @@ class Math {
         let powersOf2[12] = 4096;
         let powersOf2[13] = 8192;
         let powersOf2[14] = 16384;
-        // let powersOf2[15] = 32767; // off by 1, integer max
+        let powersOf2[15] = 32767 + 1; // overflow, will become -32768. Compiler cannot handle just typing that because 32768 is not a valid positive integer 
         
         return;
     }
@@ -44,23 +45,13 @@ class Math {
         return x;
     }
 
-    function boolean netNeg(boolean negX, boolean negY) {
-        if ((negX & negY) | (~negX & ~negY)) {
-            return false;
-        }
-       
-        return true;
-    }
-
     /** Returns the product of x and y. 
      *  When a Jack compiler detects the multiplication operator '*' in the 
      *  program's code, it handles it by invoking this method. In other words,
      *  the Jack expressions x*y and multiply(x,y) return the same value.
      */
     function int multiply(int x, int y) {
-        var int sum;
-        var int shiftedX;
-        var int i;
+        var int sum, shiftedX, i, currPower;
 
         if ((x = 0) | (y = 0)) {
             return 0;
@@ -82,13 +73,15 @@ class Math {
         let shiftedX = x;
         let i = 0;        
 
-        while (((powersOf2[i] < (y + 1)) | (y < 0)) & (i < 15)) {
-            // do Output.printInt(powersOf2[i]);
-            if ((y & powersOf2[i]) = powersOf2[i]) { // check i'th bit of y using bitwise and
+        let currPower = 1; // 2^0
+
+        while ((~(currPower > (y + 1)) | (y < 0)) & (i < 16)) {
+            if ((y & currPower) = currPower) { // check i'th bit of y using bitwise and
                 let sum = sum + shiftedX;
             }
             let shiftedX = shiftedX + shiftedX;
             let i = i + 1;
+            let currPower = currPower + currPower;
         }
         
         return sum;
@@ -101,9 +94,6 @@ class Math {
      */
     function int divide(int x, int y) {
         var int q;
-        var boolean negX;
-        var boolean negY;
-        var int ans;
 
         if (x = 0) {
             return 0;
@@ -114,30 +104,30 @@ class Math {
         if (y = -1) {
             return -x;
         }
-        if ((Math.abs(y) > Math.abs(x)) | (y < 0)) {
+
+        let q = Math._div(Math.abs(x), Math.abs(y));
+        
+        if ((x < 0) = (y < 0)) {
+            return q;
+        }
+        return -q;
+    }
+
+     function int _div(int x, int y) {
+        var int q;
+
+        if ((y > x) | ((y > 0) & ((y + y) < 0))) { // check for overflow
             return 0;
         }
-        if (x < 0) {
-            let negX = true;
-            let x = -x;
-        }
-        if (y < 0) {
-            let negY = true;
-            let y = -y;
-        }
-        let q = Math.divide(x, (y + y));
-        if ((x - ((q + q) * y)) < y) {
-            let ans = q + q;
-        }
-        else {
-            let ans = (q + q) + 1;
-        }
 
-        if (Math.netNeg(negX, negY)) {
-            return (-ans);
+        let q = Math._div(x, (y + y));
+        let q = q + q;
+        if ((x - (q * y)) < y) {
+            return q;
         }
-        return ans;
+        return (q + 1);
     }
+
 
     /** Returns the integer part of the square root of x. */
     function int sqrt(int x) {
@@ -154,12 +144,16 @@ class Math {
 
         let y = 0;
         let numBits = 0;
+        let i = 0;
         
         while (i < 15) {
             if (x > powersOf2[i]) {
                 let numBits = numBits + 1;
+                let i = i + 1;
             }
-            let i = i + 1;
+            else {
+                let i = 15;
+            }
         }
 
         let j = (numBits / 2);
@@ -167,11 +161,10 @@ class Math {
         while (j > -1) {
             let potentialRoot = y + powersOf2[j];
             let intermediateStep = (potentialRoot * potentialRoot);
-            if (((intermediateStep < (x + 1)) & (intermediateStep > 0)) {
+            if (~(intermediateStep > x) & (intermediateStep > 0)) {
                 let y = potentialRoot;
             }
-            else {
-            }
+
             let j = j - 1;
         }
         return y;

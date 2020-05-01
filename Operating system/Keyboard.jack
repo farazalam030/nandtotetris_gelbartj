@@ -8,8 +8,12 @@
  */
 class Keyboard {
 
+    static int keyboardAddress;
+        
+
     /** Initializes the keyboard. */
     function void init() {
+        let keyboardAddress = 24576;
         return;
     } 
 
@@ -34,8 +38,6 @@ class Keyboard {
      * F1 - F12 = 141 - 152
      */
     function char keyPressed() {
-        var int keyboardAddress;
-        let keyboardAddress = 24576;
         return Memory.peek(keyboardAddress);
     }
 
