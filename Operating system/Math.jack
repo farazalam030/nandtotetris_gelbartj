@@ -11,10 +11,10 @@
 class Math {
 
     static Array powersOf2;
+    static int qy2;
 
     /** Initializes the library. */
     function void init() {
-        var int i;
 
         let powersOf2 = Array.new(16);
         let powersOf2[0] = 1;
@@ -95,6 +95,8 @@ class Math {
     function int divide(int x, int y) {
         var int q;
 
+        let qy2 = 0;
+
         if (x = 0) {
             return 0;
         }
@@ -116,16 +118,23 @@ class Math {
      function int _div(int x, int y) {
         var int q;
 
-        if ((y > x) | ((y > 0) & ((y + y) < 0))) { // check for overflow
+        if ((y > x) | (y < 0)) { // check for overflow
+            let qy2 = 0;
             return 0;
         }
 
-        let q = Math._div(x, (y + y));
-        let q = q + q;
-        if ((x - (q * y)) < y) {
-            return q;
+        if (y < 16384) { // prevent infinite loop
+            let q = Math._div(x, (y + y));
         }
-        return (q + 1);
+        else {
+            let q = 0;
+        }
+
+        if ((x - qy2) < y) {
+            return (q + q);
+        }
+        let qy2 = qy2 + y;
+        return (q + q + 1);
     }
 
 
